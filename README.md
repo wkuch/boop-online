@@ -2,15 +2,18 @@
 
 Eine Online-Multiplayer-Version des Brettspiels "Boop" für zwei Spieler, spielbar im Webbrowser.
 
-## Spielregeln (Kurzübersicht)
+## Spielregeln
 
-- Spieler platzieren abwechselnd Kätzchen ihrer Farbe auf einem 6x6 Feld.
-- Das Platzieren eines Kätzchens oder einer Katze "boopt" (verschiebt) alle angrenzenden Figuren (eigene und gegnerische) um ein Feld in die entsprechende Richtung. Figuren können vom Brett gestoßen werden.
-- Drei eigene Kätzchen in einer Reihe (horizontal, vertikal, diagonal) werden entfernt und durch eine eigene Katze an der Position des zuletzt platzierten Kätzchens ersetzt. Auch dies löst einen "Boop" aus.
-- Wer zuerst drei eigene Katzen in eine Reihe bekommt, gewinnt.
-- Katzen dürfen überall platziert werden (bis der Vorrat erschöpft ist).
-- **Spezialaufwertung:** Hat ein Spieler 8 eigene Kätzchen auf dem Brett, erhält er sofort die Möglichkeit, eines dieser Kätzchen in eine Katze aufzuwerten.
-- Jeder Spieler verfügt über einen maximalen Katzen-Vorrat von 8 Stück; ist der Vorrat erschöpft, können keine neuen Katzen mehr platziert werden.
+- Leeres 6×6-Brett; jedes Feld fasst maximal eine Figur.
+- Jeder Spieler hat immer nur 8 Spielfiguren im Vorrat.
+- Zu Beginn des Spiels haben beide Spieler 8 Kätzchen im Vorrat.
+- Spieler wechseln sich ab. In deinem Zug platzierst du eine Figur aus deinem Vorrat auf ein freies Feld.
+- Jeder Spieler kann nur Spielfiguren aus seinem Vorrat auf dem Brett platzieren. Dabei kann er aber wählen falls er Katzen und Kätzchen im vorrat hat.
+- Boop: Beim Platzieren werden alle benachbarten Figuren (8 Richtungen, auch diagonal) um ein Feld vom neuen Stein weggeschoben. Figuren, die vom Brett gestoßen werden, werden entfernt.
+- Wer-booped-was: Kätzchen können nur andere Kätzchen wegboopen. Katzen hingegen können andere Katzen sowie Kätzchen boopen.
+- Aufwertung: Nach dem Boop entfernst du jede ununterbrochene Linie von drei Spielfiguren (Katzen UND Kätzchen) deiner Farbe (horizontal, vertikal oder diagonal). Alle Kätzchen von diesen drei Spielfiguren werden aus dem Spiel entfernt und der Spieler erhält stattdessen genauso viele Katzen im Vorrat. (Sodass hinterher )
+- Kitten Madness: Hast du alle deine 8 Kätzchen platziert (dein Vorrat ist leer), musst du sofort eines deiner Kätzchen auf dem Brett in eine Katze aufwerten. Auch diese Aufwertung boopt angrenzende Figuren.
+- Sieg: Wer zuerst drei Katzen in einer ununterbrochenen Reihe (horizontal, vertikal oder diagonal) hat, gewinnt das Spiel sofort. Alternativ gewinnt auch der Spieler der es schafft 8 Katzen auf dem Brett zu haben.
 
 ## Technologien
 
@@ -23,16 +26,8 @@ Eine Online-Multiplayer-Version des Brettspiels "Boop" für zwei Spieler, spielb
 Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Multiplayer-Spiel für zwei Personen, inklusive aller Grundregeln und der Spezialaufwertung (8 Kätzchen-Regel).
 
 **Was bereits funktioniert:**
-- Grundlegendes Spiel-Setup für zwei Spieler über das Netzwerk.
-- Abwechselndes Platzieren von Kätzchen.
-- "Boop"-Mechanik beim Platzieren von Figuren.
-- Automatische Promotion von drei Kätzchen in einer Reihe zu einer Katze, inklusive des dadurch ausgelösten "Boops".
-- **Spezialaufwertung bei 8 Kätzchen funktioniert und wird korrekt angeboten.**
-- Zählung der Figuren auf dem Brett und im Vorrat (inkl. korrekter Nachverfolgung des Katzen-Vorrats von 8).
-- Begrenzung der platzierbaren Figuren auf 8 pro Spieler.
 
 **Was noch nicht funktioniert / In Arbeit:**
-- Die Regel, dass Kätzchen nicht direkt neben andere Kätzchen platziert werden dürfen (außer es gibt keine anderen Züge), ist noch nicht implementiert.
 
 ## Setup und Start
 

@@ -4,10 +4,12 @@ const gameBoardElement = document.getElementById('game-board');
 const statusMessageElement = document.getElementById('status-message');
 const currentPlayerDisplayElement = document.getElementById('current-player-display');
 const playerIdDisplayElement = document.getElementById('player-id-display');
+const inviteLinkElement = document.getElementById('invite-link');
 
 let myPlayerId = null;
 let mySymbol = null;
 let myName = '';
+let currentSessionId = null;
 
 function createBoard(boardData) {
     gameBoardElement.innerHTML = ''; // Clear previous board
@@ -57,7 +59,7 @@ function handleCellClick(row, col) {
 
             if (isMyKitten) {
                 console.log(`Attempting special promotion for cell [${row},${col}] as ${myName}`);
-                socket.emit('executeSpecialPromotion', { row, col });
+                socket.emit('executeSpecialPromotion', { row, col, sessionId: currentSessionId });
                 specialPromotionActive = false; // Consume the offer
                 console.log('[CLIENT DEBUG] specialPromotionActive set to false in handleCellClick after emitting executeSpecialPromotion.');
                 if (specialPromotionOfferArea) specialPromotionOfferArea.style.display = 'none'; // Use correct variable name
@@ -79,23 +81,80 @@ function handleCellClick(row, col) {
         }
         // If cell is empty, proceed to make a move
         console.log(`Making a normal move for cell [${row},${col}] as ${myName}`);
-        socket.emit('makeMove', { row, col });
+        socket.emit('makeMove', { row, col, sessionId: currentSessionId });
     }
 }
+
+function getSessionIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('session');
+}
+
+function updateInviteLink(sessionId) {
+    const inviteLink = `${window.location.origin}?session=${sessionId}`;
+    const inviteLinkElement = document.getElementById('invite-link');
+    if (inviteLinkElement) {
+        inviteLinkElement.href = inviteLink;
+        inviteLinkElement.textContent = inviteLink;
+    }
+}
+
+socket.on('sessionCreated', (data) => {
+    const { sessionId } = data;
+    currentSessionId = sessionId;
+    updateInviteLink(sessionId);
+    history.pushState({}, '', `?session=${sessionId}`);
+    console.log(`Session created: ${sessionId}`);
+});
 
 socket.on('playerAssignment', (data) => {
     myPlayerId = data.playerId;
     mySymbol = data.symbol;
     myName = data.name;
-    playerIdDisplayElement.textContent = `You are: ${myName}`;
-    console.log('Player assignment:', data);
+    playerIdDisplayElement.textContent = `Player ID: ${myPlayerId} (${myName})`;
+    console.log(`Assigned Player ID: ${myPlayerId}, Symbol: ${mySymbol}, Name: ${myName}`);
 });
 
-socket.on('gameState', (data) => {
-    console.log('GameState received:', data);
+socket.on('playerJoined', (data) => {
+    console.log(`Player joined: ${data.playerId} (${data.name})`);
+    statusMessageElement.textContent = `Player ${data.name} has joined the game.`;
+});
+
+socket.on('gameStart', (data) => {
+    console.log('Game started!');
     createBoard(data.board);
-    statusMessageElement.textContent = data.message || '';
-    currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Turn: ${data.currentPlayer}` : '';
+    statusMessageElement.textContent = 'Game started!';
+    currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
+    gameBoardElement.style.pointerEvents = 'auto'; // Enable interaction
+});
+
+socket.on('moveMade', (data) => {
+    console.log('Move made:', data);
+    createBoard(data.board);
+    currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
+    if (data.win) {
+        statusMessageElement.textContent = `Player ${data.playerId} wins!`;
+        gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
+        socket.emit('gameEnd', { reason: 'Win condition met' });
+    } else {
+        statusMessageElement.textContent = '';
+    }
+});
+
+socket.on('playerLeft', (data) => {
+    console.log(`Player left: ${data.playerId}`);
+    statusMessageElement.textContent = `Player ${data.playerId} has left the game.`;
+});
+
+socket.on('gameEnd', (data) => {
+    console.log('Game ended:', data.reason);
+    statusMessageElement.textContent = `Game ended: ${data.reason}`;
+    gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
+});
+
+socket.on('error', (data) => {
+    console.error('Error:', data.message);
+    statusMessageElement.textContent = `Error: ${data.message}`;
 });
 
 socket.on('invalidMove', (message) => {
@@ -133,6 +192,7 @@ socket.on('gameOver', (data) => {
 let specialPromotionActive = false;
 const specialPromotionButton = document.getElementById('specialPromotionButton'); // Assuming you add a button with this ID
 const specialPromotionMessageElement = document.getElementById('specialPromotionMessage'); // Optional message element
+const specialPromotionOfferArea = document.getElementById('specialPromotionOfferArea'); // Optional offer area element
 
 if (specialPromotionButton) {
     specialPromotionButton.style.display = 'none'; // Hide by default
@@ -144,24 +204,33 @@ if (specialPromotionButton) {
 }
 
 socket.on('offerSpecialPromotion', (data) => {
-    console.log('[CLIENT DEBUG] Received offerSpecialPromotion. Message:', data.message);
-    console.log('[CLIENT DEBUG] specialPromotionActive set to true.');
+    console.log('Special promotion offered:', data.message);
+    statusMessageElement.textContent = data.message;
     specialPromotionActive = true;
-    if (specialPromotionButton) specialPromotionButton.style.display = 'block';
-    if (specialPromotionMessageElement) {
-        specialPromotionMessageElement.textContent = data.message || 'Special promotion available: Click a kitten to upgrade!';
-    } else {
-        alert(data.message || 'Special promotion available: Click a kitten to upgrade!');
+    if (specialPromotionOfferArea) {
+        specialPromotionOfferArea.style.display = 'block';
     }
-    // No automatic timeout, player needs to act or make a normal move (which server should handle by cancelling offer implicitly)
 });
 
 socket.on('hideSpecialPromotion', () => {
-    console.log('[CLIENT DEBUG] Received hideSpecialPromotion.');
-    console.log('[CLIENT DEBUG] specialPromotionActive set to false by hideSpecialPromotion.');
+    console.log('Hiding special promotion offer');
     specialPromotionActive = false;
-    if (specialPromotionButton) specialPromotionButton.style.display = 'none';
-    if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = '';
+    if (specialPromotionOfferArea) {
+        specialPromotionOfferArea.style.display = 'none';
+    }
+});
+
+socket.on('gameState', (data) => {
+    console.log('GameState received:', data);
+    createBoard(data.board);
+    currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Player: ${data.currentPlayer}` : '';
+    statusMessageElement.textContent = data.message || '';
+});
+
+socket.on('gameOver', (data) => {
+    console.log('Game over:', data.winnerName);
+    statusMessageElement.textContent = `${data.winnerName} wins! Game Over.`;
+    gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
 });
 
 // Modify gameState listener to hide special promotion if it's no longer offered implicitly by turn change
@@ -183,7 +252,17 @@ socket.on('gameState', (data) => {
     }
 });
 
-// Initial setup
-statusMessageElement.textContent = 'Connecting to server...';
+// Initialize
 createBoard(Array(6).fill(null).map(() => Array(6).fill(null))); // Initial empty board
 gameBoardElement.style.pointerEvents = 'auto'; // Ensure board is interactive at start
+
+console.log('Initializing connection...');
+const sessionId = getSessionIdFromUrl();
+if (sessionId) {
+    console.log(`Joining session from URL: ${sessionId}`);
+    currentSessionId = sessionId;
+    socket.emit('joinSession', { sessionId });
+} else {
+    console.log('Creating new session');
+    socket.emit('createSession');
+}

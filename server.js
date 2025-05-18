@@ -11,12 +11,57 @@ const io = socketIo(server);
 
 app.use(express.static('public'));
 
-let players = {};
-let currentPlayer = null;
-let gameBoard = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)); // BOARD_SIZE x BOARD_SIZE board
-let gameActive = false;
-let playerSymbols = ['P1', 'P2']; // Placeholder for player 1 and player 2 pieces
-let playerColors = { P1: 'Player 1 (Red)', P2: 'Player 2 (Blue)' };
+let sessions = {};
+
+function createSession() {
+    const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    sessions[sessionId] = {
+        players: {},
+        currentPlayer: null,
+        gameBoard: Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)),
+        gameActive: false
+    };
+    console.log(`Session created: ${sessionId}`);
+    return sessionId;
+}
+
+function joinSession(sessionId, socket) {
+    if (!sessions[sessionId]) {
+        console.log(`Session ${sessionId} does not exist`);
+        socket.emit('error', { message: 'Session does not exist' });
+        return false;
+    }
+    const session = sessions[sessionId];
+    if (Object.keys(session.players).length >= 2) {
+        console.log(`Session ${sessionId} is full`);
+        socket.emit('error', { message: 'Session is full' });
+        return false;
+    }
+    const playerId = socket.id;
+    const playerSymbol = Object.keys(session.players).length === 0 ? 'P1' : 'P2';
+    const playerColors = { P1: 'Player 1 (Red)', P2: 'Player 2 (Blue)' };
+    session.players[playerId] = {
+        id: playerId,
+        name: playerColors[playerSymbol],
+        symbol: playerSymbol,
+        kittensOnBoard: 0,
+        catsOnBoard: 0,
+        catsInSupply: 8, // Max 8 cats per player
+        totalPiecesAllowed: 8,
+        specialPromotionOffered: false
+    };
+    socket.join(sessionId);
+    console.log(`Player ${playerId} joined session ${sessionId} as ${playerSymbol}`);
+    socket.emit('playerAssignment', { playerId, symbol: playerSymbol, name: playerColors[playerSymbol] });
+    io.to(sessionId).emit('playerJoined', { playerId, name: playerColors[playerSymbol] });
+    if (Object.keys(session.players).length === 2) {
+        session.gameActive = true;
+        session.currentPlayer = 'P1';
+        console.log(`Game started in session ${sessionId}`);
+        io.to(sessionId).emit('gameStart', { board: session.gameBoard, currentPlayer: session.currentPlayer });
+    }
+    return true;
+}
 
 // Helper function to perform the booping
 function boopPieces(board, placedRow, placedCol) {
@@ -69,70 +114,73 @@ function boopPieces(board, placedRow, placedCol) {
 }
 
 // Helper function to check for kitten promotion
-function checkForKittenPromotion(board, playerSymbol, outCatCoordinate) {
-    // outCatCoordinate is an object like {row: null, col: null} to be filled if a promotion occurs.
-    // Returns true if a promotion was made in this pass, false otherwise.
+function checkForKittenPromotion(board, playerSymbol, sessionId, outCatCoordinate) {
     console.log(`[DEBUG] checkForKittenPromotion loop called for player ${playerSymbol}`);
-    for (let cr = 0; cr < BOARD_SIZE; cr++) {
-        for (let cc = 0; cc < BOARD_SIZE; cc++) {
-            // Defines lines where (cr,cc) is the first (e.g., top-leftmost) piece.
-            const lineChecks = [
-                { type: "H", p1: [cr,cc], p2: [cr,cc+1], p3: [cr,cc+2] }, // Horizontal
-                { type: "V", p1: [cr,cc], p2: [cr+1,cc], p3: [cr+2,cc] }, // Vertical
-                { type: "DDR", p1: [cr,cc], p2: [cr+1,cc+1], p3: [cr+2,cc+2] }, // Diagonal Down-Right
-                { type: "DUR", p1: [cr,cc], p2: [cr-1,cc+1], p3: [cr-2,cc+2] }  // Diagonal Up-Right (cr,cc is bottom-left)
-            ];
+    // Check for three kittens in a row for the given player
+    const lines = [
+        // Horizontal
+        ...Array.from({ length: BOARD_SIZE }, (_, row) => ({
+            type: 'H',
+            coords: Array.from({ length: BOARD_SIZE - 2 }, (_, col) => [
+                [row, col], [row, col + 1], [row, col + 2]
+            ])
+        })),
+        // Vertical
+        ...Array.from({ length: BOARD_SIZE - 2 }, (_, row) => ({
+            type: 'V',
+            coords: Array.from({ length: BOARD_SIZE }, (_, col) => [
+                [row, col], [row + 1, col], [row + 2, col]
+            ])
+        })),
+        // Diagonal /
+        ...Array.from({ length: BOARD_SIZE - 2 }, (_, row) => ({
+            type: 'D1',
+            coords: Array.from({ length: BOARD_SIZE - 2 }, (_, col) => [
+                [row, col], [row + 1, col + 1], [row + 2, col + 2]
+            ])
+        })),
+        // Diagonal \
+        ...Array.from({ length: BOARD_SIZE - 2 }, (_, row) => ({
+            type: 'D2',
+            coords: Array.from({ length: BOARD_SIZE - 2 }, (_, col) => [
+                [row, col + 2], [row + 1, col + 1], [row + 2, col]
+            ])
+        }))
+    ];
 
-            for (const line of lineChecks) {
-                const coords = [line.p1, line.p2, line.p3];
-                let allKittensOfPlayer = true;
-                let onBoard = true;
+    for (const line of lines) {
+        for (const coordSet of line.coords) {
+            const [k1_pos, k2_pos, k3_pos] = coordSet;
+            const k1 = board[k1_pos[0]][k1_pos[1]];
+            const k2 = board[k2_pos[0]][k2_pos[1]];
+            const k3 = board[k3_pos[0]][k3_pos[1]];
 
-                for (const coord of coords) {
-                    const r_coord = coord[0];
-                    const c_coord = coord[1];
-                    if (r_coord < 0 || r_coord >= BOARD_SIZE || c_coord < 0 || c_coord >= BOARD_SIZE) {
-                        onBoard = false;
-                        break;
-                    }
-                    const piece = board[r_coord][c_coord];
-                    if (!piece || piece.type !== 'kitten' || piece.player !== playerSymbol) {
-                        allKittensOfPlayer = false;
-                        break;
-                    }
-                }
+            if (k1 && k2 && k3 &&
+                k1.type === 'kitten' && k2.type === 'kitten' && k3.type === 'kitten' &&
+                k1.player === playerSymbol && k2.player === playerSymbol && k3.player === playerSymbol) {
 
-                if (onBoard && allKittensOfPlayer) {
-                    const k1_pos = coords[0];
-                    const k2_pos = coords[1]; // Cat will be placed here (middle)
-                    const k3_pos = coords[2];
+                console.log(`[DEBUG] Promoting kitten to cat for ${playerSymbol}. Line type ${line.type}: [${k1_pos}], [${k2_pos}], [${k3_pos}]`);
 
-                    console.log(`[DEBUG] Promoting kitten to cat for ${playerSymbol}. Line type ${line.type}: [${k1_pos}], [${k2_pos}], [${k3_pos}]`);
+                const promotingPlayerSocketId = Object.keys(sessions[sessionId].players).find(id => sessions[sessionId].players[id].symbol === playerSymbol);
+                if (promotingPlayerSocketId && sessions[sessionId].players[promotingPlayerSocketId].catsInSupply > 0) {
+                    board[k1_pos[0]][k1_pos[1]] = null;
+                    board[k3_pos[0]][k3_pos[1]] = null;
+                    board[k2_pos[0]][k2_pos[1]] = { type: 'cat', player: playerSymbol }; // Place cat in middle
+                    sessions[sessionId].players[promotingPlayerSocketId].catsInSupply--; // Decrement supply
+                    // Counts will be updated globally later in makeMove
 
-                    const promotingPlayerSocketId = Object.keys(players).find(id => players[id].symbol === playerSymbol);
-                    if (promotingPlayerSocketId && players[promotingPlayerSocketId].catsInSupply > 0) {
-                        board[k1_pos[0]][k1_pos[1]] = null;
-                        board[k3_pos[0]][k3_pos[1]] = null;
-                        board[k2_pos[0]][k2_pos[1]] = { type: 'cat', player: playerSymbol }; // Place cat in middle
-                        
-                        players[promotingPlayerSocketId].catsInSupply--; // Decrement supply
-                        // Counts will be updated globally later in makeMove
-
-                        outCatCoordinate.row = k2_pos[0];
-                        outCatCoordinate.col = k2_pos[1];
-                        
-                        console.log(`[DEBUG] Normal promotion for ${playerSymbol}. Cats left: ${players[promotingPlayerSocketId].catsInSupply}`);
-                        return true; // Promoted one line, exit for re-scan from makeMove
-                    } else {
-                        console.log(`[DEBUG] Promotion for ${playerSymbol} skipped, no cats in supply.`);
-                        return false; // Cannot promote if no cats in supply
-                    }
-
+                    outCatCoordinate.row = k2_pos[0];
+                    outCatCoordinate.col = k2_pos[1];
+                    
+                    console.log(`[DEBUG] Normal promotion for ${playerSymbol}. Cats left: ${sessions[sessionId].players[promotingPlayerSocketId].catsInSupply}`);
+                    return true; // Promoted one line, exit for re-scan from makeMove
+                } else {
+                    console.log(`[DEBUG] Promotion for ${playerSymbol} skipped, no cats in supply.`);
                 }
             }
         }
     }
-    return false; // No promotion found in this full pass
+    return false;
 }
 
 // Helper function to check for a win condition (three cats in a row)
@@ -211,283 +259,240 @@ function checkForWin(board, playerSymbol) {
 }
 
 io.on('connection', (socket) => {
-    console.log('New client connected:', socket.id);
+    console.log(`Client connected: ${socket.id}`);
 
-    if (Object.keys(players).length < 2) {
-        const playerSymbol = Object.keys(players).length === 0 ? playerSymbols[0] : playerSymbols[1];
-        players[socket.id] = {
-            id: socket.id,
-            symbol: playerSymbol,
-            name: playerColors[playerSymbol],
-            kittensOnBoard: 0,
-            catsOnBoard: 0,
-            catsInSupply: 8, // Max 8 cats per player
-            totalPiecesAllowed: 8,
-            specialPromotionOffered: false
-        };
-        socket.emit('playerAssignment', { playerId: socket.id, symbol: playerSymbol, name: playerColors[playerSymbol] });
-        console.log('Player assigned:', players[socket.id]);
-
-        if (Object.keys(players).length === 2 && !gameActive) {
-            gameActive = true;
-            currentPlayer = playerSymbols[0]; // Player 1 starts
-            updatePlayerPieceCounts(gameBoard, players); // Initial counts at game start
-            // No special promotion offer at the very beginning of the game.
-            // It will be offered at the end of a player's turn or at the start of the next player's turn if conditions are met.
-            io.emit('gameState', { board: gameBoard, currentPlayer: playerColors[currentPlayer], message: `${playerColors[currentPlayer]} starts.` });
-            console.log('Game started. Current player:', playerColors[currentPlayer]);
-        }
-    } else {
-        socket.emit('gameFull', 'Sorry, the game is full.');
-        socket.disconnect(true);
-        return;
-    }
-
-    socket.on('makeMove', (data) => {
-        if (!gameActive || socket.id !== Object.keys(players).find(id => players[id].symbol === currentPlayer)) {
-            socket.emit('invalidMove', 'Not your turn or game not active.');
+    socket.on('joinSession', (data) => {
+        if (!data || !data.sessionId) {
+            console.log(`Invalid joinSession request from ${socket.id}`);
+            socket.emit('error', { message: 'Invalid session ID' });
             return;
         }
-
-        const { row, col } = data;
-        const player = players[socket.id];
-
-        // Check if player is allowed to place a new kitten (less than 8 kittens on board)
-        // This count should be up-to-date from the end of the PREVIOUS turn.
-        // Or, if special promotion is active, this check is bypassed as it's a different action.
-        const pDataCurrent = players[socket.id];
-        if (pDataCurrent.kittensOnBoard >= pDataCurrent.totalPiecesAllowed) {
-            // Exception: If they have exactly 8 kittens and offerSpecialPromotion is available, they might be trying to click a kitten for it.
-            // However, makeMove is for placing new pieces. executeSpecialPromotion handles the upgrade.
-            // So, if 8 kittens are on board, no new piece can be placed via makeMove.
-            socket.emit('actionError', { message: 'You already have 8 kittens on the board. Cannot place new kitten unless through special promotion.' });
-            console.log(`[INFO] ${player.name} tried to place kitten with 8 kittens on board. Move rejected.`);
-            return;
-        }
-
-        // Basic move validation (can cell be played?)
-        if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE || gameBoard[row][col] !== null) {
-            socket.emit('invalidMove', 'Invalid move. Cell is out of bounds or already occupied.');
-            return;
-        }
-
-        // Place the kitten
-        gameBoard[row][col] = { type: 'kitten', player: player.symbol };
-        const placedPiecePlayerName = players[socket.id].name;
-        console.log(`[DEBUG] makeMove: ${placedPiecePlayerName} placed kitten at [${row},${col}]. Current player symbol: ${player.symbol}. About to call boopPieces.`);
-        
-        // Perform booping for the placed kitten
-        const boopedPiecesFromMove = boopPieces(gameBoard, row, col);
-
-        let message = `Move made by ${placedPiecePlayerName}.`;
-        console.log(`[DEBUG] makeMove: After first boopPieces for [${row},${col}]. About to call checkForKittenPromotion.`);
-
-        // Check for kitten promotion (can be cascading)
-        let promotionOccurredThisTurn = false;
-        let overallNewlyPlacedCatsForBooping = [];
-        let singlePromotionCheckResult;
-
-        do {
-            let newlyPlacedCatInThisPass = { row: -1, col: -1 }; 
-            singlePromotionCheckResult = checkForKittenPromotion(gameBoard, player.symbol, newlyPlacedCatInThisPass);
-            if (singlePromotionCheckResult) {
-                promotionOccurredThisTurn = true;
-                overallNewlyPlacedCatsForBooping.push({row: newlyPlacedCatInThisPass.row, col: newlyPlacedCatInThisPass.col});
-            }
-        } while (singlePromotionCheckResult);
-
-        if (promotionOccurredThisTurn) {
-            message = `${player.name} promoted kitten(s) to cat(s)! New cat(s) also boop.`;
-            console.log(`${player.name} promoted kittens. Cats placed at: ${JSON.stringify(overallNewlyPlacedCatsForBooping)}`);
-            for (const catCoord of overallNewlyPlacedCatsForBooping) {
-                const boopedPiecesFromPromotion = boopPieces(gameBoard, catCoord.row, catCoord.col); // Boop for each new cat
-                if (boopedPiecesFromPromotion.length > 0) {
-                    message += ` The new cat booped ${boopedPiecesFromPromotion.length} piece(s).`;
-                    console.log(`[DEBUG] New cat from promotion booped ${boopedPiecesFromPromotion.length} piece(s).`);
-                }
-            }
-        }
-
-        // Check for win condition: full cat board or three cats in a row
-        const fullCats = players[socket.id].catsOnBoard === players[socket.id].totalPiecesAllowed;
-        if (fullCats) {
-            gameActive = false;
-            message = `${player.name} WINS by placing all ${players[socket.id].totalPiecesAllowed} cats on the board! Game Over.`;
-            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
-            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message });
-            console.log(message);
-            updatePlayerPieceCounts(gameBoard, players);
-        } else if (checkForWin(gameBoard, player.symbol)) {
-            gameActive = false;
-            message = `${player.name} WINS with three cats in a row! Game Over.`;
-            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
-            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message }); // Update final state
-            console.log(message);
-            updatePlayerPieceCounts(gameBoard, players); // Update counts on game end
-        } else {
-            updatePlayerPieceCounts(gameBoard, players); // Update counts for the player who just moved.
-
-            // Immediate special promotion if player has placed 8 kittens
-            const currentData = players[socket.id];
-            if (currentData.kittensOnBoard === currentData.totalPiecesAllowed && currentData.catsInSupply > 0) {
-                currentData.specialPromotionOffered = true;
-                console.log(`[DEBUG] Immediate special promotion offered to ${currentData.name} after placing 8th kitten.`);
-                socket.emit('offerSpecialPromotion', { message: 'You have placed 8 kittens and can upgrade one of them now.' });
-                io.emit('gameState', { board: gameBoard, currentPlayer: playerColors[currentPlayer], message: 'You have placed 8 kittens and can upgrade one.' });
-                return;
-            }
-
-            // Switch player
-            currentPlayer = (currentPlayer === playerSymbols[0]) ? playerSymbols[1] : playerSymbols[0];
-            message += ` It's ${playerColors[currentPlayer]}'s turn.`;
-            io.emit('gameState', { board: gameBoard, currentPlayer: playerColors[currentPlayer], message: message });
-            console.log(`Current player: ${playerColors[currentPlayer]}`);
-        }
+        const { sessionId } = data;
+        console.log(`Attempting to join session ${sessionId} for client ${socket.id}`);
+        joinSession(sessionId, socket);
     });
 
-    socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id);
-        if (players[socket.id]) {
-            const disconnectedPlayerName = players[socket.id].name;
-            delete players[socket.id];
-            // Reset game if a player disconnects
-            const wasGameActiveBeforeDisconnect = gameActive;
-            delete players[socket.id];
-            // Reset game if a player disconnects
-            gameActive = false; // Always set to false initially after a disconnect or game end
-            gameBoard = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
-            // Reset player piece counts and supply for a new game
-            for (const id in players) {
-                if(players[id]) { // Ensure player exists
-                    players[id].kittensOnBoard = 0;
-                    players[id].catsOnBoard = 0;
-                    players[id].catsInSupply = 8; // Reset supply
-                }
-            }
-            if (Object.keys(players).length < 2) {
-                 // If game was active and a player left, other player might be waiting
-                const resetMessage = wasGameActiveBeforeDisconnect 
-                    ? `${disconnectedPlayerName} has disconnected. Game reset. Waiting for new opponent.` 
-                    : `Game was over. ${disconnectedPlayerName} left. Ready for a new game. Waiting for players.`;
-                io.emit('playerDisconnected', resetMessage);
-                console.log(resetMessage);
-                players = {}; // Fully clear players if we are resetting for a new game for sure.
-            } else {
-                // This case (2 players still connected, but one disconnected and reconnected as a new ID) is less common
-                // but ensures the game state is clean. If one player left from an active game, and another is still there,
-                // the above 'if' handles it. This 'else' is more of a fallback.
-                io.emit('playerDisconnected', `${disconnectedPlayerName} has disconnected. State check.`); 
-            }
-            // gameActive will be set to true again when two players are connected in the 'connection' handler
+    socket.on('createSession', () => {
+        const sessionId = createSession();
+        console.log(`Session ${sessionId} created for client ${socket.id}`);
+        socket.emit('sessionCreated', { sessionId });
+        joinSession(sessionId, socket);
+    });
+
+    socket.on('makeMove', (data) => {
+        if (!data || !data.sessionId) {
+            console.log(`Invalid makeMove request from ${socket.id}`);
+            socket.emit('error', { message: 'Invalid session ID' });
+            return;
         }
+        const { row, col, sessionId } = data;
+        console.log(`Move requested by ${socket.id} in session ${sessionId} at [${row}, ${col}]`);
+        const session = sessions[sessionId];
+        if (!session) {
+            console.log(`Session ${sessionId} does not exist for move by ${socket.id}`);
+            socket.emit('error', { message: 'Session does not exist' });
+            return;
+        }
+        if (!session.gameActive) {
+            console.log(`Game not active in session ${sessionId} for move by ${socket.id}`);
+            socket.emit('error', { message: 'Game is not active' });
+            return;
+        }
+        const playerId = socket.id;
+        const player = session.players[playerId];
+        if (!player) {
+            console.log(`Player ${playerId} not in session ${sessionId}`);
+            socket.emit('error', { message: 'You are not in this game' });
+            return;
+        }
+        if (player.symbol !== session.currentPlayer) {
+            console.log(`Not ${playerId}'s turn in session ${sessionId}`);
+            socket.emit('error', { message: 'It is not your turn' });
+            return;
+        }
+        if (session.gameBoard[row][col] !== null) {
+            console.log(`Cell [${row}, ${col}] already occupied in session ${sessionId}`);
+            socket.emit('error', { message: 'Cell is already occupied' });
+            return;
+        }
+        if (player.kittensOnBoard >= player.totalPiecesAllowed && !player.specialPromotionOffered) {
+            console.log(`Player ${playerId} has no more kittens to place in session ${sessionId}`);
+            socket.emit('error', { message: 'You have no more kittens to place' });
+            return;
+        }
+
+        // Place a kitten
+        const placedPiece = { player: player.symbol, type: 'kitten' };
+        session.gameBoard[row][col] = placedPiece;
+        player.kittensOnBoard++;
+        console.log(`Kitten placed by ${playerId} at [${row}, ${col}] in session ${sessionId}`);
+
+        // Process booping
+        const booped = boopPieces(session.gameBoard, row, col);
+
+        // Check for promotion
+        let outCatCoordinate = { row: null, col: null };
+        const promotion = checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinate);
+        let promotedToCats = promotion;
+
+        // Update counts
+        updatePlayerPieceCounts(session.gameBoard, session.players);
+
+        // Check for win
+        const win = checkForWin(session.gameBoard, player.symbol);
+
+        // Check for special promotion
+        if (player.kittensOnBoard === player.totalPiecesAllowed && player.catsInSupply > 0 && !player.specialPromotionOffered) {
+            player.specialPromotionOffered = true;
+            console.log(`[DEBUG] Special promotion offered to ${player.name} after placing 8th kitten.`);
+            socket.emit('offerSpecialPromotion', { message: 'You have placed 8 kittens and can upgrade one of them now.' });
+            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: session.currentPlayer, message: `${player.name} has placed 8 kittens and can upgrade one.` });
+            return;
+        }
+
+        // Switch player
+        session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
+        console.log(`Turn switched to ${session.currentPlayer} in session ${sessionId}`);
+
+        // Emit update to all in session
+        io.to(sessionId).emit('moveMade', {
+            board: session.gameBoard,
+            currentPlayer: session.currentPlayer,
+            booped,
+            promotedToCats,
+            outCatCoordinate,
+            win,
+            playerId
+        });
+        console.log(`Move update emitted to session ${sessionId}`);
     });
 
     socket.on('executeSpecialPromotion', (data) => {
-        const player = players[socket.id];
-        if (!player || !gameActive || !player.specialPromotionOffered) {
+        const { row, col, sessionId } = data;
+        const session = sessions[sessionId];
+        if (!session) {
+            socket.emit('error', { message: 'Session does not exist' });
+            return;
+        }
+        if (!session.gameActive) {
+            socket.emit('error', { message: 'Game is not active' });
+            return;
+        }
+        const playerId = socket.id;
+        const player = session.players[playerId];
+        if (!player) {
+            socket.emit('error', { message: 'You are not in this game' });
+            return;
+        }
+        if (!player.specialPromotionOffered) {
             socket.emit('actionError', { message: 'Cannot perform special promotion now.' });
             return;
         }
-
-        const { row, col } = data;
         if (row === undefined || col === undefined || row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
             socket.emit('actionError', { message: 'Invalid coordinates for special promotion.' });
             console.log(`[ERROR] Invalid coordinates for special promotion by ${player.name}: [${row},${col}]`);
             return;
         }
 
-        const playerRecord = players[socket.id]; // Player data for the current player
-        const piece = gameBoard[row][col];
+        const playerRecord = session.players[playerId]; // Player data for the current player
+        const piece = session.gameBoard[row][col];
 
         // Validate: Must have 8 KITTENS on board for THIS special promotion rule
         if (playerRecord.kittensOnBoard !== 8) { 
-            socket.emit('actionError', { message: 'Condition for special promotion (8 kittens on board) no longer met.' });
-            console.log(`[DEBUG] executeSpecialPromotion rejected for ${playerRecord.name}: kittensOnBoard is ${playerRecord.kittensOnBoard}, not 8.`);
-            socket.emit('hideSpecialPromotion'); 
+            socket.emit('actionError', { message: 'You must have exactly 8 kittens on the board for special promotion.' });
+            console.log(`[ERROR] Special promotion by ${player.name} failed: does not have 8 kittens on board. Has ${playerRecord.kittensOnBoard}.`);
             return;
         }
 
-        // Ensure the selected piece is indeed the player's own kitten
-        if (!piece || piece.type !== 'kitten' || piece.player !== playerRecord.symbol) {
-            socket.emit('actionError', { message: 'Invalid piece selected for special promotion. Must be your own kitten.' });
-            console.log(`[DEBUG] executeSpecialPromotion rejected for ${playerRecord.name}: Invalid piece. Expected own kitten at [${row},${col}], got ${JSON.stringify(piece)}. Player symbol: ${playerRecord.symbol}`);
-            // Offer remains, player can try again with a different piece.
-            return; 
-        }
-
-        // Ensure player has cats in supply
-        if (playerRecord.catsInSupply <= 0) {
-            socket.emit('actionError', { message: 'No cats in supply to perform special promotion.' });
-            console.log(`[DEBUG] executeSpecialPromotion rejected for ${playerRecord.name}: No cats in supply.`);
-            socket.emit('hideSpecialPromotion'); // Offer is void if no supply
+        // Validate: Clicked piece must be player's own kitten
+        if (!piece || piece.type !== 'kitten' || piece.player !== player.symbol) {
+            socket.emit('actionError', { message: 'You can only upgrade your own kitten.' });
+            console.log(`[ERROR] Special promotion by ${player.name} failed: piece at [${row},${col}] is not their kitten.`);
             return;
         }
 
-        console.log(`[INFO] ${player.name} executes special promotion at [${row},${col}]`);
         let message = `${player.name} performed a special upgrade at [${row},${col}].`;
 
         // Perform upgrade
-        gameBoard[row][col] = { type: 'cat', player: player.symbol };
+        session.gameBoard[row][col] = { type: 'cat', player: player.symbol };
         playerRecord.catsInSupply--;
-        // Piece counts (kittensOnBoard, catsOnBoard) will be updated by updatePlayerPieceCounts shortly.
+        playerRecord.kittensOnBoard--;
+        playerRecord.catsOnBoard++;
         console.log(`[DEBUG] Special promotion for ${player.symbol}. Cats left in supply: ${playerRecord.catsInSupply}`);
 
         // Boop pieces around the newly formed CAT
-        const boopedPiecesFromSpecial = boopPieces(gameBoard, row, col);
+        const boopedPiecesFromSpecial = boopPieces(session.gameBoard, row, col);
         if (boopedPiecesFromSpecial.length > 0) {
             message += ` The new cat booped ${boopedPiecesFromSpecial.length} piece(s).`;
             console.log(`[DEBUG] New cat from special promotion booped ${boopedPiecesFromSpecial.length} piece(s).`);
         }
-        updatePlayerPieceCounts(gameBoard, players); // Update counts after booping
+
+        updatePlayerPieceCounts(session.gameBoard, session.players); // Update counts after booping
 
         // Check for cascading KITTEN promotions caused by the booping
         let promotionOccurredAgain;
         do {
             promotionOccurredAgain = false;
             const outCatCoordinateAgain = { row: null, col: null };
-            if (checkForKittenPromotion(gameBoard, player.symbol, outCatCoordinateAgain)) {
+            if (checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinateAgain)) {
                 promotionOccurredAgain = true;
                 message += ` ${player.name} got another promotion!`;
                 console.log(`[DEBUG] Cascading kitten promotion for ${player.name} at [${outCatCoordinateAgain.row},${outCatCoordinateAgain.col}] after special upgrade.`);
                 
-                const boopedPiecesFromPromotion = boopPieces(gameBoard, outCatCoordinateAgain.row, outCatCoordinateAgain.col);
+                const boopedPiecesFromPromotion = boopPieces(session.gameBoard, outCatCoordinateAgain.row, outCatCoordinateAgain.col);
                 if (boopedPiecesFromPromotion.length > 0) {
                     message += ` That new cat booped ${boopedPiecesFromPromotion.length} piece(s).`;
                     console.log(`[DEBUG] Cat from cascading promotion booped ${boopedPiecesFromPromotion.length} piece(s).`);
                 }
-                updatePlayerPieceCounts(gameBoard, players); // Update counts after each promotion and subsequent boop
+                updatePlayerPieceCounts(session.gameBoard, session.players); // Update counts after each promotion and subsequent boop
             }
         } while (promotionOccurredAgain);
         // Final count update before win check / turn switch.
-        updatePlayerPieceCounts(gameBoard, players);
+        updatePlayerPieceCounts(session.gameBoard, session.players);
 
         // Check for win condition: full cat board or three cats in a row
-        const fullCatsAfterSpecial = players[socket.id].catsOnBoard === players[socket.id].totalPiecesAllowed;
+        const fullCatsAfterSpecial = playerRecord.catsOnBoard === playerRecord.totalPiecesAllowed;
         if (fullCatsAfterSpecial) {
-            gameActive = false;
-            message = `${player.name} WINS by placing all ${players[socket.id].totalPiecesAllowed} cats on the board (after special upgrade)! Game Over.`;
-            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
-            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message });
+            session.gameActive = false;
+            message = `${player.name} WINS by placing all ${playerRecord.totalPiecesAllowed} cats on the board (after special upgrade)! Game Over.`;
+            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
+            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
             console.log(message);
-            updatePlayerPieceCounts(gameBoard, players);
-        } else if (checkForWin(gameBoard, player.symbol)) {
-            gameActive = false;
+            updatePlayerPieceCounts(session.gameBoard, session.players);
+        } else if (checkForWin(session.gameBoard, player.symbol)) {
+            session.gameActive = false;
             message = `${player.name} WINS with three cats in a row (after special upgrade)! Game Over.`;
-            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
-            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message });
+            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
+            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
             console.log(message);
-            updatePlayerPieceCounts(gameBoard, players); // Final counts update on game end
+            updatePlayerPieceCounts(session.gameBoard, session.players); // Final counts update on game end
         } else {
             // Switch player
-            currentPlayer = (currentPlayer === playerSymbols[0]) ? playerSymbols[1] : playerSymbols[0];
-            message += ` ${playerColors[currentPlayer]}'s turn.`;
-            io.emit('gameState', { board: gameBoard, currentPlayer: playerColors[currentPlayer], message: message });
-            console.log(`Current player: ${playerColors[currentPlayer]}`);
+            session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
+            message += ` ${session.currentPlayer}'s turn.`;
+            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: session.currentPlayer, message: message });
+            console.log(`Current player: ${session.currentPlayer}`);
         }
         playerRecord.specialPromotionOffered = false;
         socket.emit('hideSpecialPromotion');
     });
 
+    socket.on('disconnect', () => {
+        console.log(`Client disconnected: ${socket.id}`);
+        for (const sessionId in sessions) {
+            const session = sessions[sessionId];
+            if (session.players[socket.id]) {
+                console.log(`Player ${socket.id} left session ${sessionId}`);
+                delete session.players[socket.id];
+                io.to(sessionId).emit('playerLeft', { playerId: socket.id });
+                if (Object.keys(session.players).length < 2) {
+                    session.gameActive = false;
+                    console.log(`Game ended in session ${sessionId} due to player disconnect`);
+                    io.to(sessionId).emit('gameEnd', { reason: 'A player disconnected' });
+                }
+            }
+        }
+    });
 });
 
 server.listen(port, () => console.log(`Listening on port ${port}`));

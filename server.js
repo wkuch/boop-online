@@ -375,6 +375,18 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Cell is already occupied' });
             return;
         }
+        // Offer special promotion if board is full (all pieces on board)
+        if (!player.specialPromotionOffered && player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed) {
+            player.specialPromotionOffered = true;
+            socket.emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+            io.to(sessionId).emit('gameState', {
+                board: session.gameBoard,
+                currentPlayer: session.currentPlayer,
+                message: `${player.name} has all pieces on board and can upgrade a kitten.`,
+                supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+            });
+            return;
+        }
         // Check supply for selected piece
         if (type === 'kitten' && player.kittensInSupply <= 0) {
             console.log(`Player ${playerId} has no kittens in supply in session ${sessionId}`);
@@ -410,6 +422,19 @@ io.on('connection', (socket) => {
         // Update counts
         updatePlayerPieceCounts(session.gameBoard, session.players);
 
+        // Offer special promotion if player has all pieces on board
+        if (player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed && !player.specialPromotionOffered) {
+            player.specialPromotionOffered = true;
+            socket.emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+            io.to(sessionId).emit('gameState', {
+                board: session.gameBoard,
+                currentPlayer: session.currentPlayer,
+                message: `${player.name} has all pieces on board and can upgrade a kitten.`,
+                supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+            });
+            return;
+        }
+
         // Global detection: three cats in a row for any player
         for (const pid in session.players) {
             const sym2 = session.players[pid].symbol;
@@ -442,17 +467,7 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Check for win
         const win = checkForWin(session.gameBoard, player.symbol);
-
-        // Check for special promotion
-        if (player.kittensOnBoard === player.totalPiecesAllowed && player.catsInSupply > 0 && !player.specialPromotionOffered) {
-            player.specialPromotionOffered = true;
-            console.log(`[DEBUG] Special promotion offered to ${player.name} after placing 8th kitten.`);
-            socket.emit('offerSpecialPromotion', { message: 'You have placed 8 kittens and can upgrade one of them now.' });
-            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: session.currentPlayer, message: `${player.name} has placed 8 kittens and can upgrade one.` });
-            return;
-        }
 
         // Check if player has won by placing all 8 cats
         if (player.catsOnBoard === player.totalPiecesAllowed) {
@@ -483,6 +498,14 @@ io.on('connection', (socket) => {
             }, {})
         });
         console.log(`Move update emitted to session ${sessionId}`);
+
+        // Offer special promotion to next player if they have all pieces on board
+        const nextPlayerId = Object.keys(session.players).find(pid => session.players[pid].symbol === session.currentPlayer);
+        const nextPlayer = session.players[nextPlayerId];
+        if (nextPlayer.kittensOnBoard + nextPlayer.catsOnBoard === nextPlayer.totalPiecesAllowed && !nextPlayer.specialPromotionOffered) {
+            nextPlayer.specialPromotionOffered = true;
+            io.to(nextPlayerId).emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+        }
     });
 
     socket.on('executeSpecialPromotion', (data) => {
@@ -515,10 +538,10 @@ io.on('connection', (socket) => {
         const playerRecord = session.players[playerId]; // Player data for the current player
         const piece = session.gameBoard[row][col];
 
-        // Validate: Must have 8 KITTENS on board for THIS special promotion rule
-        if (playerRecord.kittensOnBoard !== 8) { 
-            socket.emit('actionError', { message: 'You must have exactly 8 kittens on the board for special promotion.' });
-            console.log(`[ERROR] Special promotion by ${player.name} failed: does not have 8 kittens on board. Has ${playerRecord.kittensOnBoard}.`);
+        // Validate: Must have all pieces on board for special promotion rule
+        if (playerRecord.kittensOnBoard + playerRecord.catsOnBoard !== playerRecord.totalPiecesAllowed) {
+            socket.emit('actionError', { message: 'You must have all your pieces on the board to upgrade.' });
+            console.log(`[ERROR] Special promotion by ${player.name} failed: does not have all pieces on board (has ${playerRecord.kittensOnBoard + playerRecord.catsOnBoard}).`);
             return;
         }
 
@@ -531,67 +554,25 @@ io.on('connection', (socket) => {
 
         let message = `${player.name} performed a special upgrade at [${row},${col}].`;
 
-        // Perform upgrade
-        session.gameBoard[row][col] = { type: 'cat', player: player.symbol };
-        playerRecord.catsInSupply--;
-        playerRecord.kittensOnBoard--;
-        playerRecord.catsOnBoard++;
-        console.log(`[DEBUG] Special promotion for ${player.symbol}. Cats left in supply: ${playerRecord.catsInSupply}`);
+        // Perform special promotion: remove a kitten and add a cat to supply
+        session.gameBoard[row][col] = null;
+        playerRecord.catsInSupply++;
+        console.log(`[DEBUG] Special promotion for ${player.symbol}. Cats in supply: ${playerRecord.catsInSupply}`);
 
-        // Boop pieces around the newly formed CAT
-        const boopedPiecesFromSpecial = boopPieces(session.gameBoard, row, col, session.players);
-        if (boopedPiecesFromSpecial.length > 0) {
-            message += ` The new cat booped ${boopedPiecesFromSpecial.length} piece(s).`;
-            console.log(`[DEBUG] New cat from special promotion booped ${boopedPiecesFromSpecial.length} piece(s).`);
-        }
-
-        updatePlayerPieceCounts(session.gameBoard, session.players); // Update counts after booping
-
-        // Check for cascading KITTEN promotions caused by the booping
-        let promotionOccurredAgain;
-        do {
-            promotionOccurredAgain = false;
-            const outCatCoordinateAgain = { row: null, col: null };
-            if (checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinateAgain, session.players)) {
-                promotionOccurredAgain = true;
-                message += ` ${player.name} got another promotion!`;
-                console.log(`[DEBUG] Cascading kitten promotion for ${player.name} at [${outCatCoordinateAgain.row},${outCatCoordinateAgain.col}] after special upgrade.`);
-                
-                const boopedPiecesFromPromotion = boopPieces(session.gameBoard, outCatCoordinateAgain.row, outCatCoordinateAgain.col, session.players);
-                if (boopedPiecesFromPromotion.length > 0) {
-                    message += ` That new cat booped ${boopedPiecesFromPromotion.length} piece(s).`;
-                    console.log(`[DEBUG] Cat from cascading promotion booped ${boopedPiecesFromPromotion.length} piece(s).`);
-                }
-                updatePlayerPieceCounts(session.gameBoard, session.players); // Update counts after each promotion and subsequent boop
-            }
-        } while (promotionOccurredAgain);
-        // Final count update before win check / turn switch.
+        // After special promotion: update counts and switch turn
         updatePlayerPieceCounts(session.gameBoard, session.players);
-
-        // Check for win condition: full cat board or three cats in a row
-        const fullCatsAfterSpecial = playerRecord.catsOnBoard === playerRecord.totalPiecesAllowed;
-        if (fullCatsAfterSpecial) {
-            session.gameActive = false;
-            message = `${player.name} WINS by placing all ${playerRecord.totalPiecesAllowed} cats on the board (after special upgrade)! Game Over.`;
-            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
-            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
-            console.log(message);
-        } else if (checkForWin(session.gameBoard, player.symbol)) {
-            session.gameActive = false;
-            message = `${player.name} WINS with three cats in a row (after special upgrade)! Game Over.`;
-            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
-            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
-            console.log(message);
-            updatePlayerPieceCounts(session.gameBoard, session.players); // Final counts update on game end
-        } else {
-            // Switch player
-            session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
-            message += ` ${session.currentPlayer}'s turn.`;
-            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: session.currentPlayer, message: message });
-            console.log(`Current player: ${session.currentPlayer}`);
-        }
+        session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
+        message += ` ${session.currentPlayer}'s turn.`;
+        io.to(sessionId).emit('gameState', {
+            board: session.gameBoard,
+            currentPlayer: session.currentPlayer,
+            message: message,
+            supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+        });
+        console.log(`Current player: ${session.currentPlayer}`);
         playerRecord.specialPromotionOffered = false;
         socket.emit('hideSpecialPromotion');
+        return;
     });
 
     socket.on('disconnect', () => {

@@ -21,13 +21,18 @@ function createBoard(boardData) {
 
             const piece = boardData[i][j];
             if (piece) {
-                const pieceElement = document.createElement('div');
-                pieceElement.classList.add(piece.type); // 'kitten' or 'cat'
-                // Add player-specific class, e.g., 'player1-kitten', 'player2-cat'
-                const playerClass = piece.player === 'P1' ? 'player1' : 'player2';
-                pieceElement.classList.add(`${playerClass}-${piece.type}`);
-                // pieceElement.textContent = piece.type === 'kitten' ? 'K' : 'C'; // Simple text, or use CSS for images/icons
-                cell.appendChild(pieceElement);
+                // Display image for piece
+                const img = document.createElement('img');
+                const imgName = piece.type === 'kitten'
+                    ? (piece.player === 'P1' ? '/images/kitten-orange.png' : '/images/kitten-grey.png')
+                    : (piece.player === 'P1' ? '/images/cat-orange.png' : '/images/cat-grey.png');
+                img.src = imgName;
+                // Fill the entire cell
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.objectPosition = 'center';
+                cell.appendChild(img);
             }
             gameBoardElement.appendChild(cell);
         }
@@ -40,13 +45,13 @@ function handleCellClick(row, col) {
     const pieceElement = cell.firstChild;
 
     if (specialPromotionActive) {
-        if (pieceElement && pieceElement.classList.contains('kitten')) {
+        if (pieceElement && pieceElement.tagName === 'IMG' && pieceElement.src.includes('kitten')) {
             // Check if it's the current player's kitten
-            console.log('[CLIENT DEBUG] Clicked pieceElement classList:', pieceElement.classList);
+            console.log('[CLIENT DEBUG] Clicked pieceElement src:', pieceElement.src);
             let isMyKitten = false;
-            if (mySymbol === 'P1' && pieceElement.classList.contains('player1-kitten')) {
+            if (mySymbol === 'P1' && pieceElement.src.includes('kitten-orange.png')) {
                 isMyKitten = true;
-            } else if (mySymbol === 'P2' && pieceElement.classList.contains('player2-kitten')) {
+            } else if (mySymbol === 'P2' && pieceElement.src.includes('kitten-grey.png')) {
                 isMyKitten = true;
             }
 
@@ -59,7 +64,7 @@ function handleCellClick(row, col) {
                 if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = '';
             } else {
                 alert('Please click on one of YOUR KITTENS to perform the special upgrade.');
-                console.log(`[CLIENT DEBUG] Clicked on a kitten, but not player's own, during special promo. My Symbol: ${mySymbol}, Clicked piece classList: ${JSON.stringify(Array.from(pieceElement.classList))}`);
+                console.log(`[CLIENT DEBUG] Clicked on a kitten, but not player's own, during special promo. My Symbol: ${mySymbol}, Clicked piece src: ${pieceElement.src}`);
             }
         } else {
             // Clicked on an empty cell or a cat during special promotion mode

@@ -73,21 +73,33 @@ h1 {
 }
 
 .player1-kitten {
-    background-color: #ff6961; /* Red */
-    color: white;
+    background-color: #ff6961; /* fallback color */
+    background-image: url('/images/kitten-orange.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 .player1-cat {
-    background-color: #c32f27; /* Darker Red */
-    color: white;
+    background-color: #c32f27; /* fallback color */
+    background-image: url('/images/cat-orange.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 .player2-kitten {
-    background-color: #77dd77; /* Green - changed from blue for better contrast with wood */
-    color: white;
+    background-color: #77dd77; /* fallback color */
+    background-image: url('/images/kitten-grey.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 .player2-cat {
-    background-color: #3c9a3c; /* Darker Green */
-    color: white;
+    background-color: #3c9a3c; /* fallback color */
+    background-image: url('/images/cat-grey.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
 }

@@ -72,7 +72,7 @@ function joinSession(sessionId, socket) {
 }
 
 // Helper function to perform the booping
-function boopPieces(board, placedRow, placedCol) {
+function boopPieces(board, placedRow, placedCol, playersMap) {
     console.log(`[DEBUG] boopPieces called for piece at [${placedRow}, ${placedCol}]`);
     const boopedPieces = [];
     const boopingPiece = board[placedRow][placedCol];
@@ -112,6 +112,14 @@ function boopPieces(board, placedRow, placedCol) {
                 } else {
                     // Target is off the board, remove the piece
                     console.log(`[DEBUG] Booping piece from [${neighborRow}, ${neighborCol}] off board.`);
+                    // Return removed piece to supply
+                    const playerEntry = Object.values(playersMap).find(p => p.symbol === pieceToBoop.player);
+                    if (pieceToBoop.type === 'kitten') {
+                        playerEntry.kittensInSupply++;
+                    } else if (pieceToBoop.type === 'cat') {
+                        playerEntry.catsInSupply++;
+                    }
+                    console.log(`[DEBUG] ${pieceToBoop.type} booped off board for player ${playerEntry.symbol}. Supplies now kittens:${playerEntry.kittensInSupply}, cats:${playerEntry.catsInSupply}`);
                     board[neighborRow][neighborCol] = null;
                     boopedPieces.push({from: [neighborRow, neighborCol], to: null});
                 }
@@ -122,7 +130,7 @@ function boopPieces(board, placedRow, placedCol) {
 }
 
 // Helper function to check for kitten promotion
-function checkForKittenPromotion(board, playerSymbol, sessionId, outCatCoordinate) {
+function checkForKittenPromotion(board, playerSymbol, sessionId, outCatCoordinate, playersMap) {
     const session = sessions[sessionId];
     if (!session) {
         console.log(`Session ${sessionId} does not exist for promotion check`);
@@ -164,30 +172,31 @@ function checkForKittenPromotion(board, playerSymbol, sessionId, outCatCoordinat
                         }
                     }
                     if (count === 3) {
-                        if (player.catsInSupply > 0) {
-                            promotionOccurred = true;
-                            lineKittens.forEach(([r, c]) => {
+                        // Always upgrade: remove kittens except pivot, return them to supply, and promote pivot to cat
+                        promotionOccurred = true;
+                        // Remove non-pivot kittens and return to supply
+                        lineKittens.forEach(([r, c]) => {
+                            if (!(r === row && c === col)) {
                                 board[r][c] = null;
                                 player.kittensOnBoard--;
-                            });
-                            board[row][col] = { player: playerSymbol, type: 'cat' };
-                            player.catsOnBoard++;
-                            player.catsInSupply--;
-                            outCatCoordinate.row = row;
-                            outCatCoordinate.col = col;
-                            console.log(`Promotion at [${row}, ${col}] for player ${playerSymbol} in session ${sessionId}`);
-                            const booped = boopPieces(board, row, col);
-                            console.log(`Booped pieces after promotion: ${booped.length}`);
-                            updatePlayerPieceCounts(board, session.players);
-                            if (player.catsOnBoard === player.totalPiecesAllowed) {
-                                session.gameActive = false;
-                                const message = `${player.name} WINS by placing all ${player.totalPiecesAllowed} cats on the board! Game Over.`;
-                                io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
-                                io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
-                                console.log(message);
+                                player.kittensInSupply++;
                             }
-                        } else {
-                            console.log(`No cats in supply for promotion for player ${playerSymbol}`);
+                        });
+                        // Promote pivot kitten to cat
+                        board[row][col] = { player: playerSymbol, type: 'cat' };
+                        player.catsOnBoard++;
+                        outCatCoordinate.row = row;
+                        outCatCoordinate.col = col;
+                        console.log(`Promotion at [${row}, ${col}] for player ${playerSymbol} in session ${sessionId}`);
+                        const booped = boopPieces(board, row, col, playersMap);
+                        console.log(`Booped pieces after promotion: ${booped.length}`);
+                        updatePlayerPieceCounts(board, session.players);
+                        if (player.catsOnBoard === player.totalPiecesAllowed) {
+                            session.gameActive = false;
+                            const message = `${player.name} WINS by placing all ${player.totalPiecesAllowed} cats on the board! Game Over.`;
+                            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
+                            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
+                            console.log(message);
                         }
                         break;
                     }
@@ -284,14 +293,20 @@ function handleTripleRemoval(board, playersMap, playerSymbol) {
         for (let c = 0; c < BOARD_SIZE; c++) {
             for (const [dr, dc] of directions) {
                 const coords = [[r, c], [r + dr, c + dc], [r + 2*dr, c + 2*dc]];
-                if (coords.every(([rr, cc]) => rr >= 0 && rr < BOARD_SIZE && cc >= 0 && cc < BOARD_SIZE && board[rr][cc] && board[rr][cc].player === playerSymbol)) {
+                // Detect and remove triples of contiguous pieces (excluding pure cat triples)
+                if (coords.every(([rr, cc]) =>
+                    rr >= 0 && rr < BOARD_SIZE &&
+                    cc >= 0 && cc < BOARD_SIZE &&
+                    board[rr][cc] &&
+                    board[rr][cc].player === playerSymbol
+                ) &&
+                !coords.every(([rr, cc]) => board[rr][cc].type === 'cat')) {
                     if (coords.some(([rr, cc]) => removedSet.has(`${rr},${cc}`))) continue;
-                    // Remove all three pieces
+                    // Remove the triple and add cats to supply
                     coords.forEach(([rr, cc]) => {
                         board[rr][cc] = null;
                         removedSet.add(`${rr},${cc}`);
                     });
-                    // Add three cats to supply
                     playerEntry.catsInSupply += 3;
                     tripleCount++;
                 }
@@ -385,7 +400,7 @@ io.on('connection', (socket) => {
         console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} placed by ${playerId} at [${row}, ${col}] in session ${sessionId}`);
 
         // Process booping
-        const booped = boopPieces(session.gameBoard, row, col);
+        const booped = boopPieces(session.gameBoard, row, col, session.players);
 
         // Handle triple-line promotion: remove all three pieces to supply
         let removedTriples = handleTripleRemoval(session.gameBoard, session.players, player.symbol);
@@ -394,6 +409,38 @@ io.on('connection', (socket) => {
 
         // Update counts
         updatePlayerPieceCounts(session.gameBoard, session.players);
+
+        // Global detection: three cats in a row for any player
+        for (const pid in session.players) {
+            const sym2 = session.players[pid].symbol;
+            if (checkForWin(session.gameBoard, sym2)) {
+                session.gameActive = false;
+                const winnerName = session.players[pid].name;
+                const winMsg = `${winnerName} WINS with three cats in a row! Game Over.`;
+                io.to(sessionId).emit('gameOver', { winnerName, board: session.gameBoard });
+                io.to(sessionId).emit('gameState', {
+                    board: session.gameBoard,
+                    currentPlayer: null,
+                    message: winMsg,
+                    supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+                });
+                return;
+            }
+        }
+        // Global detection: remove triple lines of contiguous pieces (excluding pure cat triples) and add cats to supply
+        for (const pid of Object.keys(session.players)) {
+            const sym2 = session.players[pid].symbol;
+            const removedTriples = handleTripleRemoval(session.gameBoard, session.players, sym2);
+            if (removedTriples > 0) {
+                updatePlayerPieceCounts(session.gameBoard, session.players);
+                io.to(sessionId).emit('gameState', {
+                    board: session.gameBoard,
+                    currentPlayer: session.currentPlayer,
+                    message: `${session.players[pid].name} removed ${removedTriples * 3} pieces and gained ${removedTriples * 3} cats.`,
+                    supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+                });
+            }
+        }
 
         // Check for win
         const win = checkForWin(session.gameBoard, player.symbol);
@@ -492,7 +539,7 @@ io.on('connection', (socket) => {
         console.log(`[DEBUG] Special promotion for ${player.symbol}. Cats left in supply: ${playerRecord.catsInSupply}`);
 
         // Boop pieces around the newly formed CAT
-        const boopedPiecesFromSpecial = boopPieces(session.gameBoard, row, col);
+        const boopedPiecesFromSpecial = boopPieces(session.gameBoard, row, col, session.players);
         if (boopedPiecesFromSpecial.length > 0) {
             message += ` The new cat booped ${boopedPiecesFromSpecial.length} piece(s).`;
             console.log(`[DEBUG] New cat from special promotion booped ${boopedPiecesFromSpecial.length} piece(s).`);
@@ -505,12 +552,12 @@ io.on('connection', (socket) => {
         do {
             promotionOccurredAgain = false;
             const outCatCoordinateAgain = { row: null, col: null };
-            if (checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinateAgain)) {
+            if (checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinateAgain, session.players)) {
                 promotionOccurredAgain = true;
                 message += ` ${player.name} got another promotion!`;
                 console.log(`[DEBUG] Cascading kitten promotion for ${player.name} at [${outCatCoordinateAgain.row},${outCatCoordinateAgain.col}] after special upgrade.`);
                 
-                const boopedPiecesFromPromotion = boopPieces(session.gameBoard, outCatCoordinateAgain.row, outCatCoordinateAgain.col);
+                const boopedPiecesFromPromotion = boopPieces(session.gameBoard, outCatCoordinateAgain.row, outCatCoordinateAgain.col, session.players);
                 if (boopedPiecesFromPromotion.length > 0) {
                     message += ` That new cat booped ${boopedPiecesFromPromotion.length} piece(s).`;
                     console.log(`[DEBUG] Cat from cascading promotion booped ${boopedPiecesFromPromotion.length} piece(s).`);
@@ -529,7 +576,6 @@ io.on('connection', (socket) => {
             io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
             io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
             console.log(message);
-            updatePlayerPieceCounts(session.gameBoard, session.players);
         } else if (checkForWin(session.gameBoard, player.symbol)) {
             session.gameActive = false;
             message = `${player.name} WINS with three cats in a row (after special upgrade)! Game Over.`;

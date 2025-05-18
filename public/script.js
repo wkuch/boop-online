@@ -238,12 +238,11 @@ socket.on('gameState', (data) => {
     createBoard(data.board);
     currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Player: ${data.currentPlayer}` : '';
     statusMessageElement.textContent = data.message || '';
-});
-
-socket.on('gameOver', (data) => {
-    console.log('Game over:', data.winnerName);
-    statusMessageElement.textContent = `${data.winnerName} wins! Game Over.`;
-    gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
+    // Update supply display
+    if (supplyDisplayElement && data.supplies && mySymbol) {
+        const mySupply = data.supplies[mySymbol];
+        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+    }
 });
 
 // Modify gameState listener to hide special promotion if it's no longer offered implicitly by turn change
@@ -252,6 +251,11 @@ socket.on('gameState', (data) => {
     createBoard(data.board);
     statusMessageElement.textContent = data.message || '';
     currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Turn: ${data.currentPlayer}` : '';
+    // Update supply display
+    if (supplyDisplayElement && data.supplies && mySymbol) {
+        const mySupply = data.supplies[mySymbol];
+        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+    }
 
     // If game is over or currentPlayer is null (e.g. before game starts), 
     // any pending special promotion offer is implicitly void.

@@ -8,8 +8,9 @@ Eine Online-Multiplayer-Version des Brettspiels "Boop" für zwei Spieler, spielb
 - Das Platzieren eines Kätzchens oder einer Katze "boopt" (verschiebt) alle angrenzenden Figuren (eigene und gegnerische) um ein Feld in die entsprechende Richtung. Figuren können vom Brett gestoßen werden.
 - Drei eigene Kätzchen in einer Reihe (horizontal, vertikal, diagonal) werden entfernt und durch eine eigene Katze an der Position des zuletzt platzierten Kätzchens ersetzt. Auch dies löst einen "Boop" aus.
 - Wer zuerst drei eigene Katzen in eine Reihe bekommt, gewinnt.
-- Kätzchen dürfen nicht auf Felder direkt neben (auch diagonal) anderen Kätzchen platziert werden (Ausnahme: keine anderen Züge möglich).
-- Katzen dürfen überall platziert werden.
+- Katzen dürfen überall platziert werden (bis der Vorrat erschöpft ist).
+- **Spezialaufwertung:** Hat ein Spieler 8 eigene Kätzchen auf dem Brett, erhält er sofort die Möglichkeit, eines dieser Kätzchen in eine Katze aufzuwerten.
+- Jeder Spieler verfügt über einen maximalen Katzen-Vorrat von 8 Stück; ist der Vorrat erschöpft, können keine neuen Katzen mehr platziert werden.
 
 ## Technologien
 
@@ -26,12 +27,11 @@ Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Mul
 - Abwechselndes Platzieren von Kätzchen.
 - "Boop"-Mechanik beim Platzieren von Figuren.
 - Automatische Promotion von drei Kätzchen in einer Reihe zu einer Katze, inklusive des dadurch ausgelösten "Boops".
-- Erkennung der Gewinnbedingung (drei Katzen in einer Reihe).
-- Zählung der Figuren auf dem Brett und im Vorrat.
+- **Spezialaufwertung bei 8 Kätzchen funktioniert und wird korrekt angeboten.**
+- Zählung der Figuren auf dem Brett und im Vorrat (inkl. korrekter Nachverfolgung des Katzen-Vorrats von 8).
 - Begrenzung der platzierbaren Figuren auf 8 pro Spieler.
 
 **Was noch nicht funktioniert / In Arbeit:**
-- **Spezialaufwertung:** Die Regel, dass ein Spieler ein Kätzchen zu einer Katze aufwerten darf, wenn er 8 eigene Kätzchen auf dem Brett hat, ist implementiert, aber es gibt noch einen Fehler, der verhindert, dass Spieler diese Aktion korrekt ausführen können. Der Client sendet das falsche Signal an den Server.
 - Die Regel, dass Kätzchen nicht direkt neben andere Kätzchen platziert werden dürfen (außer es gibt keine anderen Züge), ist noch nicht implementiert.
 
 ## Setup und Start

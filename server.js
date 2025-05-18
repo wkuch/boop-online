@@ -308,8 +308,16 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Check for win condition (three cats in a row)
-        if (checkForWin(gameBoard, player.symbol)) {
+        // Check for win condition: full cat board or three cats in a row
+        const fullCats = players[socket.id].catsOnBoard === players[socket.id].totalPiecesAllowed;
+        if (fullCats) {
+            gameActive = false;
+            message = `${player.name} WINS by placing all ${players[socket.id].totalPiecesAllowed} cats on the board! Game Over.`;
+            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
+            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message });
+            console.log(message);
+            updatePlayerPieceCounts(gameBoard, players);
+        } else if (checkForWin(gameBoard, player.symbol)) {
             gameActive = false;
             message = `${player.name} WINS with three cats in a row! Game Over.`;
             io.emit('gameOver', { winnerName: player.name, board: gameBoard });
@@ -453,8 +461,16 @@ io.on('connection', (socket) => {
         // Final count update before win check / turn switch.
         updatePlayerPieceCounts(gameBoard, players);
 
-        // Check for win condition
-        if (checkForWin(gameBoard, player.symbol)) {
+        // Check for win condition: full cat board or three cats in a row
+        const fullCatsAfterSpecial = players[socket.id].catsOnBoard === players[socket.id].totalPiecesAllowed;
+        if (fullCatsAfterSpecial) {
+            gameActive = false;
+            message = `${player.name} WINS by placing all ${players[socket.id].totalPiecesAllowed} cats on the board (after special upgrade)! Game Over.`;
+            io.emit('gameOver', { winnerName: player.name, board: gameBoard });
+            io.emit('gameState', { board: gameBoard, currentPlayer: null, message: message });
+            console.log(message);
+            updatePlayerPieceCounts(gameBoard, players);
+        } else if (checkForWin(gameBoard, player.symbol)) {
             gameActive = false;
             message = `${player.name} WINS with three cats in a row (after special upgrade)! Game Over.`;
             io.emit('gameOver', { winnerName: player.name, board: gameBoard });

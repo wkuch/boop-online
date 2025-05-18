@@ -46,7 +46,8 @@ function joinSession(sessionId, socket) {
         symbol: playerSymbol,
         kittensOnBoard: 0,
         catsOnBoard: 0,
-        catsInSupply: 8, // Max 8 cats per player
+        kittensInSupply: 8, // initial kitten supply
+        catsInSupply: 0,    // initial cat supply
         totalPiecesAllowed: 8,
         specialPromotionOffered: false
     };
@@ -58,7 +59,14 @@ function joinSession(sessionId, socket) {
         session.gameActive = true;
         session.currentPlayer = 'P1';
         console.log(`Game started in session ${sessionId}`);
-        io.to(sessionId).emit('gameStart', { board: session.gameBoard, currentPlayer: session.currentPlayer });
+        io.to(sessionId).emit('gameStart', {
+            board: session.gameBoard,
+            currentPlayer: session.currentPlayer,
+            supplies: Object.values(session.players).reduce((acc, p) => {
+                acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply };
+                return acc;
+            }, {})
+        });
     }
     return true;
 }
@@ -232,7 +240,7 @@ function checkForWin(board, playerSymbol) {
         [[0,3],[1,3],[2,3]], [[1,3],[2,3],[3,3]], [[2,3],[3,3],[4,3]], [[3,3],[4,3],[5,3]],
         [[0,4],[1,4],[2,4]], [[1,4],[2,4],[3,4]], [[2,4],[3,4],[4,4]], [[3,4],[4,4],[5,4]],
         [[0,5],[1,5],[2,5]], [[1,5],[2,5],[3,5]], [[2,5],[3,5],[4,5]], [[3,5],[4,5],[5,5]],
-        // Diagonal (top-left to bottom-right)
+        // Diagonal TL-BR
         [[0,0],[1,1],[2,2]], [[1,1],[2,2],[3,3]], [[2,2],[3,3],[4,4]], [[3,3],[4,4],[5,5]],
         [[0,1],[1,2],[2,3]], [[1,2],[2,3],[3,4]], [[2,3],[3,4],[4,5]],
         [[0,2],[1,3],[2,4]], [[1,3],[2,4],[3,5]],
@@ -240,7 +248,7 @@ function checkForWin(board, playerSymbol) {
         [[1,0],[2,1],[3,2]], [[2,1],[3,2],[4,3]], [[3,2],[4,3],[5,4]],
         [[2,0],[3,1],[4,2]], [[3,1],[4,2],[5,3]],
         [[3,0],[4,1],[5,2]],
-        // Diagonal (bottom-left to top-right)
+        // Diagonal BL-TR
         [[5,0],[4,1],[3,2]], [[4,1],[3,2],[2,3]], [[3,2],[2,3],[1,4]], [[2,3],[1,4],[0,5]],
         [[5,1],[4,2],[3,3]], [[4,2],[3,3],[2,4]], [[3,3],[2,4],[1,5]],
         [[5,2],[4,3],[3,4]], [[4,3],[3,4],[2,5]],
@@ -263,6 +271,34 @@ function checkForWin(board, playerSymbol) {
         }
     }
     return false; // No win
+}
+
+// Helper to detect lines of three contiguous pieces and return them to supply
+function handleTripleRemoval(board, playersMap, playerSymbol) {
+    const playerEntry = Object.values(playersMap).find(p => p.symbol === playerSymbol);
+    if (!playerEntry) return 0;
+    const directions = [[0,1], [1,0], [1,1], [1,-1]];
+    let tripleCount = 0;
+    const removedSet = new Set();
+    for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+            for (const [dr, dc] of directions) {
+                const coords = [[r, c], [r + dr, c + dc], [r + 2*dr, c + 2*dc]];
+                if (coords.every(([rr, cc]) => rr >= 0 && rr < BOARD_SIZE && cc >= 0 && cc < BOARD_SIZE && board[rr][cc] && board[rr][cc].player === playerSymbol)) {
+                    if (coords.some(([rr, cc]) => removedSet.has(`${rr},${cc}`))) continue;
+                    // Remove all three pieces
+                    coords.forEach(([rr, cc]) => {
+                        board[rr][cc] = null;
+                        removedSet.add(`${rr},${cc}`);
+                    });
+                    // Add three cats to supply
+                    playerEntry.catsInSupply += 3;
+                    tripleCount++;
+                }
+            }
+        }
+    }
+    return tripleCount;
 }
 
 io.on('connection', (socket) => {
@@ -292,7 +328,9 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Invalid session ID' });
             return;
         }
-        const { row, col, sessionId } = data;
+        const { row, col, sessionId, pieceType } = data;
+        // Determine piece type: default to kitten
+        const type = pieceType === 'cat' ? 'cat' : 'kitten';
         console.log(`Move requested by ${socket.id} in session ${sessionId} at [${row}, ${col}]`);
         const session = sessions[sessionId];
         if (!session) {
@@ -322,25 +360,37 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Cell is already occupied' });
             return;
         }
-        if (player.kittensOnBoard >= player.totalPiecesAllowed && !player.specialPromotionOffered) {
-            console.log(`Player ${playerId} has no more kittens to place in session ${sessionId}`);
-            socket.emit('error', { message: 'You have no more kittens to place' });
+        // Check supply for selected piece
+        if (type === 'kitten' && player.kittensInSupply <= 0) {
+            console.log(`Player ${playerId} has no kittens in supply in session ${sessionId}`);
+            socket.emit('error', { message: 'You have no kittens in supply' });
+            return;
+        }
+        if (type === 'cat' && player.catsInSupply <= 0) {
+            console.log(`Player ${playerId} has no cats in supply in session ${sessionId}`);
+            socket.emit('error', { message: 'You have no cats in supply' });
             return;
         }
 
-        // Place a kitten
-        const placedPiece = { player: player.symbol, type: 'kitten' };
+        // Place the selected piece
+        const placedPiece = { player: player.symbol, type };
         session.gameBoard[row][col] = placedPiece;
-        player.kittensOnBoard++;
-        console.log(`Kitten placed by ${playerId} at [${row}, ${col}] in session ${sessionId}`);
+        if (type === 'kitten') {
+            player.kittensInSupply--;
+            player.kittensOnBoard++;
+        } else {
+            player.catsInSupply--;
+            player.catsOnBoard++;
+        }
+        console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} placed by ${playerId} at [${row}, ${col}] in session ${sessionId}`);
 
         // Process booping
         const booped = boopPieces(session.gameBoard, row, col);
 
-        // Check for promotion
+        // Handle triple-line promotion: remove all three pieces to supply
+        let removedTriples = handleTripleRemoval(session.gameBoard, session.players, player.symbol);
+        let promotedToCats = removedTriples > 0;
         let outCatCoordinate = { row: null, col: null };
-        const promotion = checkForKittenPromotion(session.gameBoard, player.symbol, sessionId, outCatCoordinate);
-        let promotedToCats = promotion;
 
         // Update counts
         updatePlayerPieceCounts(session.gameBoard, session.players);
@@ -379,7 +429,11 @@ io.on('connection', (socket) => {
             promotedToCats,
             outCatCoordinate,
             win,
-            playerId
+            playerId,
+            supplies: Object.values(session.players).reduce((acc, p) => {
+                acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply };
+                return acc;
+            }, {})
         });
         console.log(`Move update emitted to session ${sessionId}`);
     });

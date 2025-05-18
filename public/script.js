@@ -5,6 +5,7 @@ const statusMessageElement = document.getElementById('status-message');
 const currentPlayerDisplayElement = document.getElementById('current-player-display');
 const playerIdDisplayElement = document.getElementById('player-id-display');
 const inviteLinkElement = document.getElementById('invite-link');
+const supplyDisplayElement = document.getElementById('supply-display');
 
 let myPlayerId = null;
 let mySymbol = null;
@@ -81,7 +82,9 @@ function handleCellClick(row, col) {
         }
         // If cell is empty, proceed to make a move
         console.log(`Making a normal move for cell [${row},${col}] as ${myName}`);
-        socket.emit('makeMove', { row, col, sessionId: currentSessionId });
+        // Get selected piece type from UI
+        const pieceType = document.querySelector('input[name="pieceType"]:checked').value;
+        socket.emit('makeMove', { row, col, sessionId: currentSessionId, pieceType });
     }
 }
 
@@ -126,12 +129,22 @@ socket.on('gameStart', (data) => {
     statusMessageElement.textContent = 'Game started!';
     currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
     gameBoardElement.style.pointerEvents = 'auto'; // Enable interaction
+    // Update supply display
+    if (supplyDisplayElement && data.supplies && mySymbol) {
+        const mySupply = data.supplies[mySymbol];
+        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+    }
 });
 
 socket.on('moveMade', (data) => {
     console.log('Move made:', data);
     createBoard(data.board);
     currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
+    // Update supply display
+    if (supplyDisplayElement && data.supplies && mySymbol) {
+        const mySupply = data.supplies[mySymbol];
+        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+    }
     if (data.win) {
         statusMessageElement.textContent = `Player ${data.playerId} wins!`;
         gameBoardElement.style.pointerEvents = 'none'; // Disable interaction

@@ -27,8 +27,8 @@ function createBoard(boardData) {
                 // Display image for piece
                 const img = document.createElement('img');
                 const imgName = piece.type === 'kitten'
-                    ? (piece.player === 'P1' ? '/images/kitten-orange.png' : '/images/kitten-grey.png')
-                    : (piece.player === 'P1' ? '/images/cat-orange.png' : '/images/cat-grey.png');
+                    ? (piece.player === 'Spieler 1' ? '/images/kitten-orange.png' : '/images/kitten-grey.png')
+                    : (piece.player === 'Spieler 1' ? '/images/cat-orange.png' : '/images/cat-grey.png');
                 img.src = imgName;
                 // Fill the entire cell
                 img.style.width = '100%';
@@ -52,9 +52,9 @@ function handleCellClick(row, col) {
             // Check if it's the current player's kitten
             console.log('[CLIENT DEBUG] Clicked pieceElement src:', pieceElement.src);
             let isMyKitten = false;
-            if (mySymbol === 'P1' && pieceElement.src.includes('kitten-orange.png')) {
+            if (mySymbol === 'Spieler 1' && pieceElement.src.includes('kitten-orange.png')) {
                 isMyKitten = true;
-            } else if (mySymbol === 'P2' && pieceElement.src.includes('kitten-grey.png')) {
+            } else if (mySymbol === 'Spieler 2' && pieceElement.src.includes('kitten-grey.png')) {
                 isMyKitten = true;
             }
 
@@ -103,9 +103,8 @@ function updateInviteLink(sessionId) {
 
 function updatePlayerDisplay() {
     if (mySymbol && myName) {
-        const playerNumber = mySymbol === 'P1' ? '1' : '2';
-        const playerColor = mySymbol === 'P1' ? '🧡' : '🩶';
-        playerIdDisplayElement.textContent = `${playerColor} Du bist Spieler ${playerNumber}`;
+        const playerColor = mySymbol === 'Spieler 1' ? '🧡' : '🩶';
+        playerIdDisplayElement.textContent = `${playerColor} Du bist ${myName}`;
     }
 }
 

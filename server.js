@@ -28,18 +28,18 @@ function createSession() {
 function joinSession(sessionId, socket) {
     if (!sessions[sessionId]) {
         console.log(`Session ${sessionId} does not exist`);
-        socket.emit('error', { message: 'Session does not exist' });
+        socket.emit('error', { message: 'Sitzung existiert nicht' });
         return false;
     }
     const session = sessions[sessionId];
     if (Object.keys(session.players).length >= 2) {
         console.log(`Session ${sessionId} is full`);
-        socket.emit('error', { message: 'Session is full' });
+        socket.emit('error', { message: 'Sitzung ist voll' });
         return false;
     }
     const playerId = socket.id;
-    const playerSymbol = Object.keys(session.players).length === 0 ? 'P1' : 'P2';
-    const playerColors = { P1: 'Player 1 (Red)', P2: 'Player 2 (Blue)' };
+    const playerSymbol = Object.keys(session.players).length === 0 ? 'Spieler 1' : 'Spieler 2';
+    const playerColors = { 'Spieler 1': 'Spieler 1 (Rot)', 'Spieler 2': 'Spieler 2 (Grau)' };
     session.players[playerId] = {
         id: playerId,
         name: playerColors[playerSymbol],
@@ -57,7 +57,7 @@ function joinSession(sessionId, socket) {
     io.to(sessionId).emit('playerJoined', { playerId, name: playerColors[playerSymbol] });
     if (Object.keys(session.players).length === 2) {
         session.gameActive = true;
-        session.currentPlayer = 'P1';
+        session.currentPlayer = 'Spieler 1';
         console.log(`Game started in session ${sessionId}`);
         io.to(sessionId).emit('gameStart', {
             board: session.gameBoard,
@@ -193,7 +193,7 @@ function checkForKittenPromotion(board, playerSymbol, sessionId, outCatCoordinat
                         updatePlayerPieceCounts(board, session.players);
                         if (player.catsOnBoard === player.totalPiecesAllowed) {
                             session.gameActive = false;
-                            const message = `${player.name} WINS by placing all ${player.totalPiecesAllowed} cats on the board! Game Over.`;
+                            const message = `${player.name} GEWINNT, indem alle ${player.totalPiecesAllowed} Katzen platziert wurden! Spiel beendet.`;
                             io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
                             io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
                             console.log(message);
@@ -230,7 +230,7 @@ function updatePlayerPieceCounts(board, playersMap) {
             }
         }
     }
-    console.log(`[DEBUG] Piece counts updated: P1 Kittens: ${Object.values(playersMap)[0]?.kittensOnBoard}, Cats: ${Object.values(playersMap)[0]?.catsOnBoard}, Supply: ${Object.values(playersMap)[0]?.catsInSupply} | P2 Kittens: ${Object.values(playersMap)[1]?.kittensOnBoard}, Cats: ${Object.values(playersMap)[1]?.catsOnBoard}, Supply: ${Object.values(playersMap)[1]?.catsInSupply}`);
+    console.log(`[DEBUG] Piece counts updated: Spieler 1 Kittens: ${Object.values(playersMap)[0]?.kittensOnBoard}, Cats: ${Object.values(playersMap)[0]?.catsOnBoard}, Supply: ${Object.values(playersMap)[0]?.catsInSupply} | Spieler 2 Kittens: ${Object.values(playersMap)[1]?.kittensOnBoard}, Cats: ${Object.values(playersMap)[1]?.catsOnBoard}, Supply: ${Object.values(playersMap)[1]?.catsInSupply}`);
 }
 
 function checkForWin(board, playerSymbol) {
@@ -322,7 +322,7 @@ io.on('connection', (socket) => {
     socket.on('joinSession', (data) => {
         if (!data || !data.sessionId) {
             console.log(`Invalid joinSession request from ${socket.id}`);
-            socket.emit('error', { message: 'Invalid session ID' });
+            socket.emit('error', { message: 'Ungültige Sitzungs-ID' });
             return;
         }
         const { sessionId } = data;
@@ -340,7 +340,7 @@ io.on('connection', (socket) => {
     socket.on('makeMove', (data) => {
         if (!data || !data.sessionId) {
             console.log(`Invalid makeMove request from ${socket.id}`);
-            socket.emit('error', { message: 'Invalid session ID' });
+            socket.emit('error', { message: 'Ungültige Sitzungs-ID' });
             return;
         }
         const { row, col, sessionId, pieceType } = data;
@@ -350,39 +350,39 @@ io.on('connection', (socket) => {
         const session = sessions[sessionId];
         if (!session) {
             console.log(`Session ${sessionId} does not exist for move by ${socket.id}`);
-            socket.emit('error', { message: 'Session does not exist' });
+            socket.emit('error', { message: 'Sitzung existiert nicht' });
             return;
         }
         if (!session.gameActive) {
             console.log(`Game not active in session ${sessionId} for move by ${socket.id}`);
-            socket.emit('error', { message: 'Game is not active' });
+            socket.emit('error', { message: 'Spiel ist nicht aktiv' });
             return;
         }
         const playerId = socket.id;
         const player = session.players[playerId];
         if (!player) {
             console.log(`Player ${playerId} not in session ${sessionId}`);
-            socket.emit('error', { message: 'You are not in this game' });
+            socket.emit('error', { message: 'Du bist nicht in diesem Spiel' });
             return;
         }
         if (player.symbol !== session.currentPlayer) {
             console.log(`Not ${playerId}'s turn in session ${sessionId}`);
-            socket.emit('error', { message: 'It is not your turn' });
+            socket.emit('error', { message: 'Du bist nicht am Zug' });
             return;
         }
         if (session.gameBoard[row][col] !== null) {
             console.log(`Cell [${row}, ${col}] already occupied in session ${sessionId}`);
-            socket.emit('error', { message: 'Cell is already occupied' });
+            socket.emit('error', { message: 'Feld ist bereits besetzt' });
             return;
         }
         // Offer special promotion if board is full (all pieces on board)
         if (!player.specialPromotionOffered && player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed) {
             player.specialPromotionOffered = true;
-            socket.emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+            socket.emit('offerSpecialPromotion', { message: 'Du hast alle deine Figuren auf dem Spielfeld und kannst ein Kätzchen verbessern.' });
             io.to(sessionId).emit('gameState', {
                 board: session.gameBoard,
                 currentPlayer: session.currentPlayer,
-                message: `${player.name} has all pieces on board and can upgrade a kitten.`,
+                message: `${player.name} hat alle Figuren auf dem Spielfeld und kann ein Kätzchen verbessern.`,
                 supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
             });
             return;
@@ -390,12 +390,12 @@ io.on('connection', (socket) => {
         // Check supply for selected piece
         if (type === 'kitten' && player.kittensInSupply <= 0) {
             console.log(`Player ${playerId} has no kittens in supply in session ${sessionId}`);
-            socket.emit('error', { message: 'You have no kittens in supply' });
+            socket.emit('error', { message: 'Du hast keine Kätzchen im Vorrat' });
             return;
         }
         if (type === 'cat' && player.catsInSupply <= 0) {
             console.log(`Player ${playerId} has no cats in supply in session ${sessionId}`);
-            socket.emit('error', { message: 'You have no cats in supply' });
+            socket.emit('error', { message: 'Du hast keine Katzen im Vorrat' });
             return;
         }
 
@@ -425,11 +425,11 @@ io.on('connection', (socket) => {
         // Offer special promotion if player has all pieces on board
         if (player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed && !player.specialPromotionOffered) {
             player.specialPromotionOffered = true;
-            socket.emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+            socket.emit('offerSpecialPromotion', { message: 'Du hast alle deine Figuren auf dem Spielfeld und kannst ein Kätzchen verbessern.' });
             io.to(sessionId).emit('gameState', {
                 board: session.gameBoard,
                 currentPlayer: session.currentPlayer,
-                message: `${player.name} has all pieces on board and can upgrade a kitten.`,
+                message: `${player.name} hat alle Figuren auf dem Spielfeld und kann ein Kätzchen verbessern.`,
                 supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
             });
             return;
@@ -441,7 +441,7 @@ io.on('connection', (socket) => {
             if (checkForWin(session.gameBoard, sym2)) {
                 session.gameActive = false;
                 const winnerName = session.players[pid].name;
-                const winMsg = `${winnerName} WINS with three cats in a row! Game Over.`;
+                const winMsg = `${winnerName} GEWINNT mit drei Katzen in einer Reihe! Spiel beendet.`;
                 io.to(sessionId).emit('gameOver', { winnerName, board: session.gameBoard });
                 io.to(sessionId).emit('gameState', {
                     board: session.gameBoard,
@@ -461,7 +461,7 @@ io.on('connection', (socket) => {
                 io.to(sessionId).emit('gameState', {
                     board: session.gameBoard,
                     currentPlayer: session.currentPlayer,
-                    message: `${session.players[pid].name} removed ${removedTriples * 3} pieces and gained ${removedTriples * 3} cats.`,
+                    message: `${session.players[pid].name} hat ${removedTriples * 3} Figuren entfernt und ${removedTriples * 3} Katzen erhalten.`,
                     supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
                 });
             }
@@ -472,7 +472,7 @@ io.on('connection', (socket) => {
         // Check if player has won by placing all 8 cats
         if (player.catsOnBoard === player.totalPiecesAllowed) {
             session.gameActive = false;
-            const message = `${player.name} WINS by placing all ${player.totalPiecesAllowed} cats on the board! Game Over.`;
+            const message = `${player.name} GEWINNT, indem alle ${player.totalPiecesAllowed} Katzen platziert wurden! Spiel beendet.`;
             io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
             io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
             console.log(message);
@@ -480,7 +480,7 @@ io.on('connection', (socket) => {
         }
 
         // Switch player
-        session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
+        session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';
         console.log(`Turn switched to ${session.currentPlayer} in session ${sessionId}`);
 
         // Emit update to all in session
@@ -504,7 +504,7 @@ io.on('connection', (socket) => {
         const nextPlayer = session.players[nextPlayerId];
         if (nextPlayer.kittensOnBoard + nextPlayer.catsOnBoard === nextPlayer.totalPiecesAllowed && !nextPlayer.specialPromotionOffered) {
             nextPlayer.specialPromotionOffered = true;
-            io.to(nextPlayerId).emit('offerSpecialPromotion', { message: 'You have all your pieces on the board and can upgrade one kitten.' });
+            io.to(nextPlayerId).emit('offerSpecialPromotion', { message: 'Du hast alle deine Figuren auf dem Spielfeld und kannst ein Kätzchen verbessern.' });
         }
     });
 
@@ -512,25 +512,25 @@ io.on('connection', (socket) => {
         const { row, col, sessionId } = data;
         const session = sessions[sessionId];
         if (!session) {
-            socket.emit('error', { message: 'Session does not exist' });
+            socket.emit('error', { message: 'Sitzung existiert nicht' });
             return;
         }
         if (!session.gameActive) {
-            socket.emit('error', { message: 'Game is not active' });
+            socket.emit('error', { message: 'Spiel ist nicht aktiv' });
             return;
         }
         const playerId = socket.id;
         const player = session.players[playerId];
         if (!player) {
-            socket.emit('error', { message: 'You are not in this game' });
+            socket.emit('error', { message: 'Du bist nicht in diesem Spiel' });
             return;
         }
         if (!player.specialPromotionOffered) {
-            socket.emit('actionError', { message: 'Cannot perform special promotion now.' });
+            socket.emit('actionError', { message: 'Spezialbeförderung jetzt nicht möglich.' });
             return;
         }
         if (row === undefined || col === undefined || row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
-            socket.emit('actionError', { message: 'Invalid coordinates for special promotion.' });
+            socket.emit('actionError', { message: 'Ungültige Koordinaten für Spezialbeförderung.' });
             console.log(`[ERROR] Invalid coordinates for special promotion by ${player.name}: [${row},${col}]`);
             return;
         }
@@ -540,19 +540,19 @@ io.on('connection', (socket) => {
 
         // Validate: Must have all pieces on board for special promotion rule
         if (playerRecord.kittensOnBoard + playerRecord.catsOnBoard !== playerRecord.totalPiecesAllowed) {
-            socket.emit('actionError', { message: 'You must have all your pieces on the board to upgrade.' });
+            socket.emit('actionError', { message: 'Du musst alle deine Figuren auf dem Spielfeld haben, um sie zu verbessern.' });
             console.log(`[ERROR] Special promotion by ${player.name} failed: does not have all pieces on board (has ${playerRecord.kittensOnBoard + playerRecord.catsOnBoard}).`);
             return;
         }
 
         // Validate: Clicked piece must be player's own kitten
         if (!piece || piece.type !== 'kitten' || piece.player !== player.symbol) {
-            socket.emit('actionError', { message: 'You can only upgrade your own kitten.' });
+            socket.emit('actionError', { message: 'Du kannst nur dein eigenes Kätzchen verbessern.' });
             console.log(`[ERROR] Special promotion by ${player.name} failed: piece at [${row},${col}] is not their kitten.`);
             return;
         }
 
-        let message = `${player.name} performed a special upgrade at [${row},${col}].`;
+        let message = `${player.name} hat eine Spezialbeförderung bei [${row},${col}] durchgeführt.`;
 
         // Perform special promotion: remove a kitten and add a cat to supply
         session.gameBoard[row][col] = null;
@@ -561,8 +561,8 @@ io.on('connection', (socket) => {
 
         // After special promotion: update counts and switch turn
         updatePlayerPieceCounts(session.gameBoard, session.players);
-        session.currentPlayer = session.currentPlayer === 'P1' ? 'P2' : 'P1';
-        message += ` ${session.currentPlayer}'s turn.`;
+        session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';
+        message += ` ${session.currentPlayer} ist am Zug.`;
         io.to(sessionId).emit('gameState', {
             board: session.gameBoard,
             currentPlayer: session.currentPlayer,
@@ -586,7 +586,7 @@ io.on('connection', (socket) => {
                 if (Object.keys(session.players).length < 2) {
                     session.gameActive = false;
                     console.log(`Game ended in session ${sessionId} due to player disconnect`);
-                    io.to(sessionId).emit('gameEnd', { reason: 'A player disconnected' });
+                    io.to(sessionId).emit('gameEnd', { reason: 'Ein Spieler hat die Verbindung getrennt' });
                 }
             }
         }

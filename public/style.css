@@ -235,6 +235,69 @@ body {
 }
 
 /* Game board */
+
+/* Rules Overview Section */
+.rules-card {
+    background-color: #f9f9f9; /* Light grey background, similar to other cards but distinct */
+    border-radius: 16px;
+    padding: 20px 25px;
+    margin-top: 30px; /* Space above the rules section */
+    margin-bottom: 20px; /* Space below the rules section */
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e0e0e0;
+    font-family: 'Poppins', sans-serif;
+    color: #444; /* Dark grey text for readability */
+}
+
+.rules-card h2 {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #2c3e50; /* Dark blue, consistent with other titles */
+    margin-bottom: 25px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #764ba2; /* Accent color border */
+}
+
+.rules-card h4 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #34495e; /* Slightly lighter blue-grey */
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.rules-card p,
+.rules-card ul {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.rules-card ul {
+    list-style-type: disc; /* Standard bullet points */
+    padding-left: 25px; /* Indentation for list items */
+}
+
+.rules-card li {
+    margin-bottom: 8px; /* Spacing between list items */
+}
+
+.rules-card strong {
+    font-weight: 600;
+    color: #764ba2; /* Accent color for important terms */
+}
+
+.rules-card .rules-note {
+    font-size: 0.85rem;
+    font-style: italic;
+    color: #7f8c8d; /* Grey for notes */
+    background-color: #ecf0f1; /* Very light grey background for notes */
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 5px;
+    border-left: 3px solid #95a5a6;
+}
 .board-container {
     width: 100%;
     display: flex;

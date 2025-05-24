@@ -75,6 +75,35 @@
                 </div>
             </div>
         </main>
+
+        <section id="rules-overview" class="rules-card">
+            <h2>Spielregeln im Überblick</h2>
+
+            <h4>Spielziel</h4>
+            <p>Gewonnen hat, wer zuerst eines der folgenden Ziele erreicht:</p>
+            <ul>
+                <li>Drei eigene Katzen in einer horizontalen, vertikalen oder diagonalen Reihe zu platzieren.</li>
+                <li>Alle acht eigenen Katzen auf dem Spielbrett platziert zu haben.</li>
+            </ul>
+
+            <h4>Spielstart &amp; Figuren setzen</h4>
+            <p>Jeder Spieler beginnt mit 8 Kätzchen im Vorrat. Abwechselnd platzieren die Spieler eine ihrer Figuren (Kätzchen oder Katze aus dem Vorrat) auf ein leeres Feld des 6x6 Spielbretts.</p>
+
+            <h4>Booping (Anstoßen von Figuren)</h4>
+            <ul>
+                <li>Wird eine Figur platziert, stößt sie alle direkt angrenzenden Figuren (eigene und gegnerische) ein Feld von sich weg.</li>
+                <li><strong>Kätzchen</strong> können nur andere <strong>Kätzchen</strong> boopen.</li>
+                <li><strong>Katzen</strong> können sowohl <strong>Kätzchen</strong> als auch <strong>Katzen</strong> boopen.</li>
+                <li>Eine Figur wird nicht gebooped, wenn das Zielfeld (das Feld, auf das sie geschoben würde) bereits von einer anderen Figur besetzt ist. In diesem Fall bleibt die zu boopende Figur stehen.</li>
+                <li>Figuren, die über den Rand des Spielbretts gebooped werden, kommen zurück in den Vorrat ihres Besitzers.</li>
+            </ul>
+
+            <h4>Kätzchen zu Katzen aufwerten (Promotion)</h4>
+            <p>Bilden drei <strong>Kätzchen</strong> eines Spielers eine durchgehende Reihe (horizontal, vertikal oder diagonal), werden alle Kätzchen innerhalb dieser Dreiergruppe zu Katzen aufgewertet und kommen in den Vorrat des Spielers. Von dort können sie platziert werden.</p>
+
+            <h4>Sonderaktion: Alle Figuren auf dem Brett</h4>
+            <p>Hat ein Spieler alle seine 8 Figuren auf dem Brett platziert (d.h. keine Figuren mehr im Vorrat zum Setzen), darf er als Sonderaktion ein eigenes Kätzchen vom Spielfeld nehmen. Dafür erhält er eine Katze in seinen Vorrat, die er in einem seiner nächsten Züge platzieren kann.</p>
+        </section>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

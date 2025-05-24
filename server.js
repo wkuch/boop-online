@@ -375,6 +375,7 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Feld ist bereits besetzt' });
             return;
         }
+
         // Offer special promotion if board is full (all pieces on board)
         if (!player.specialPromotionOffered && player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed) {
             player.specialPromotionOffered = true;
@@ -422,19 +423,6 @@ io.on('connection', (socket) => {
         // Update counts
         updatePlayerPieceCounts(session.gameBoard, session.players);
 
-        // Offer special promotion if player has all pieces on board
-        if (player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed && !player.specialPromotionOffered) {
-            player.specialPromotionOffered = true;
-            socket.emit('offerSpecialPromotion', { message: 'Du hast alle deine Figuren auf dem Spielfeld und kannst ein Kätzchen verbessern.' });
-            io.to(sessionId).emit('gameState', {
-                board: session.gameBoard,
-                currentPlayer: session.currentPlayer,
-                message: `${player.name} hat alle Figuren auf dem Spielfeld und kann ein Kätzchen verbessern.`,
-                supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
-            });
-            return;
-        }
-
         // Global detection: three cats in a row for any player
         for (const pid in session.players) {
             const sym2 = session.players[pid].symbol;
@@ -452,6 +440,33 @@ io.on('connection', (socket) => {
                 return;
             }
         }
+
+        
+        // log how many cats are on board
+        console.log(`Player ${playerId} has ${player.catsOnBoard} cats on board in session ${sessionId}`);
+        // Check if player has won by placing all 8 cats
+        if (player.catsOnBoard === player.totalPiecesAllowed) {
+            session.gameActive = false;
+            const message = `${player.name} GEWINNT, indem alle ${player.totalPiecesAllowed} Katzen platziert wurden! Spiel beendet.`;
+            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
+            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
+            console.log(message);
+            return;
+        }
+
+        // Offer special promotion if player has all pieces on board
+        if (player.kittensOnBoard + player.catsOnBoard === player.totalPiecesAllowed && !player.specialPromotionOffered) {
+            player.specialPromotionOffered = true;
+            socket.emit('offerSpecialPromotion', { message: 'Du hast alle deine Figuren auf dem Spielfeld und kannst ein Kätzchen verbessern.' });
+            io.to(sessionId).emit('gameState', {
+                board: session.gameBoard,
+                currentPlayer: session.currentPlayer,
+                message: `${player.name} hat alle Figuren auf dem Spielfeld und kann ein Kätzchen verbessern.`,
+                supplies: Object.values(session.players).reduce((acc, p) => { acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply }; return acc; }, {})
+            });
+            return;
+        }
+
         // Global detection: remove triple lines of contiguous pieces (excluding pure cat triples) and add cats to supply
         for (const pid of Object.keys(session.players)) {
             const sym2 = session.players[pid].symbol;
@@ -468,16 +483,6 @@ io.on('connection', (socket) => {
         }
 
         const win = checkForWin(session.gameBoard, player.symbol);
-
-        // Check if player has won by placing all 8 cats
-        if (player.catsOnBoard === player.totalPiecesAllowed) {
-            session.gameActive = false;
-            const message = `${player.name} GEWINNT, indem alle ${player.totalPiecesAllowed} Katzen platziert wurden! Spiel beendet.`;
-            io.to(sessionId).emit('gameOver', { winnerName: player.name, board: session.gameBoard });
-            io.to(sessionId).emit('gameState', { board: session.gameBoard, currentPlayer: null, message: message });
-            console.log(message);
-            return;
-        }
 
         // Switch player
         session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';

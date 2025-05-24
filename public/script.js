@@ -64,7 +64,7 @@ function handleCellClick(row, col) {
                 specialPromotionActive = false; // Consume the offer
                 console.log('[CLIENT DEBUG] specialPromotionActive set to false in handleCellClick after emitting executeSpecialPromotion.');
                 if (specialPromotionOfferArea) specialPromotionOfferArea.style.display = 'none';
-                if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = '';
+                console.log(`[CLIENT DEBUG] Clicked on a kitten, but not player's own, during special promo. My Symbol: ${mySymbol}, Clicked piece src: ${pieceElement.src}`);
             } else {
                 showNotification('Bitte klicke auf eines DEINER KÄTZCHEN für die Beförderung.');
                 console.log(`[CLIENT DEBUG] Clicked on a kitten, but not player's own, during special promo. My Symbol: ${mySymbol}, Clicked piece src: ${pieceElement.src}`);
@@ -283,7 +283,7 @@ const specialPromotionOfferArea = document.getElementById('specialPromotionOffer
 if (specialPromotionButton) {
     specialPromotionButton.style.display = 'none'; // Hide by default
     specialPromotionButton.addEventListener('click', () => {
-        if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = 'Klicke auf eines deiner Kätzchen, um es zu befördern!';
+        // The message is now static in index.html; data.message is used for the toast notification.
     });
 }
 
@@ -322,7 +322,7 @@ socket.on('gameState', (data) => {
             console.log('[CLIENT DEBUG] specialPromotionActive set to false due to game state change (game over or player reset).');
             specialPromotionActive = false;
             if (specialPromotionButton) specialPromotionButton.style.display = 'none';
-            if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = '';
+            // The special promotion message is static in index.html and should not be cleared here.
         }
     }
 });

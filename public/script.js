@@ -63,21 +63,20 @@ function handleCellClick(row, col) {
                 socket.emit('executeSpecialPromotion', { row, col, sessionId: currentSessionId });
                 specialPromotionActive = false; // Consume the offer
                 console.log('[CLIENT DEBUG] specialPromotionActive set to false in handleCellClick after emitting executeSpecialPromotion.');
-                if (specialPromotionOfferArea) specialPromotionOfferArea.style.display = 'none'; // Use correct variable name
+                if (specialPromotionOfferArea) specialPromotionOfferArea.style.display = 'none';
                 if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = '';
             } else {
-                alert('Please click on one of YOUR KITTENS to perform the special upgrade.');
+                showNotification('Bitte klicke auf eines DEINER KÄTZCHEN für die Beförderung.');
                 console.log(`[CLIENT DEBUG] Clicked on a kitten, but not player's own, during special promo. My Symbol: ${mySymbol}, Clicked piece src: ${pieceElement.src}`);
             }
         } else {
             // Clicked on an empty cell or a cat during special promotion mode
-            alert('Special Promotion: Please click on one of your KITTENS to upgrade. Clicking on an empty cell or a cat is not valid for this action.');
+            showNotification('Besondere Beförderung: Bitte klicke auf eines deiner KÄTZCHEN.');
             console.log('[CLIENT DEBUG] Clicked on empty cell or cat during special promo mode.');
         }
     } else { // Not special promotion active: normal move
         if (pieceElement) { // Cell is already occupied
             console.log('Cell already occupied. Cannot place new piece here.');
-            // alert('Cell is already occupied.'); // Optional user feedback
             return;
         }
         // If cell is empty, proceed to make a move
@@ -102,6 +101,82 @@ function updateInviteLink(sessionId) {
     }
 }
 
+function updatePlayerDisplay() {
+    if (mySymbol && myName) {
+        const playerNumber = mySymbol === 'P1' ? '1' : '2';
+        const playerColor = mySymbol === 'P1' ? '🧡' : '🩶';
+        playerIdDisplayElement.textContent = `${playerColor} Du bist Spieler ${playerNumber}`;
+    }
+}
+
+function updateTurnDisplay(currentPlayer) {
+    const isMyTurn = currentPlayer === myName;
+    const turnElement = currentPlayerDisplayElement;
+    
+    if (currentPlayer) {
+        if (isMyTurn) {
+            turnElement.textContent = `🎯 Du bist dran!`;
+            turnElement.className = 'turn-display your-turn';
+        } else {
+            turnElement.textContent = `⏳ ${currentPlayer} ist dran`;
+            turnElement.className = 'turn-display opponent-turn';
+        }
+    } else {
+        turnElement.textContent = 'Warten auf Spieler...';
+        turnElement.className = 'turn-display';
+    }
+}
+
+function showNotification(message) {
+    // Create a temporary notification
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ff6b6b;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        z-index: 1000;
+        animation: slideDown 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideUp 0.3s ease-out forwards';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// Copy invite link function
+function copyInviteLink() {
+    const inviteLink = document.getElementById('invite-link');
+    if (inviteLink && inviteLink.href !== '#') {
+        navigator.clipboard.writeText(inviteLink.href).then(() => {
+            const copyButton = document.querySelector('.copy-button');
+            const originalText = copyButton.textContent;
+            copyButton.textContent = '✅ Kopiert!';
+            copyButton.style.background = '#4CAF50';
+            
+            setTimeout(() => {
+                copyButton.textContent = originalText;
+                copyButton.style.background = '';
+            }, 2000);
+        }).catch(() => {
+            showNotification('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+        });
+    }
+}
+
+// Make copyInviteLink globally available
+window.copyInviteLink = copyInviteLink;
+
 socket.on('sessionCreated', (data) => {
     const { sessionId } = data;
     currentSessionId = sessionId;
@@ -114,39 +189,39 @@ socket.on('playerAssignment', (data) => {
     myPlayerId = data.playerId;
     mySymbol = data.symbol;
     myName = data.name;
-    playerIdDisplayElement.textContent = `Player ID: ${myPlayerId} (${myName})`;
+    updatePlayerDisplay();
     console.log(`Assigned Player ID: ${myPlayerId}, Symbol: ${mySymbol}, Name: ${myName}`);
 });
 
 socket.on('playerJoined', (data) => {
     console.log(`Player joined: ${data.playerId} (${data.name})`);
-    statusMessageElement.textContent = `Player ${data.name} has joined the game.`;
+    statusMessageElement.textContent = `🎉 ${data.name} ist dem Spiel beigetreten!`;
 });
 
 socket.on('gameStart', (data) => {
     console.log('Game started!');
     createBoard(data.board);
-    statusMessageElement.textContent = 'Game started!';
-    currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
+    statusMessageElement.textContent = '🚀 Spiel gestartet!';
+    updateTurnDisplay(data.currentPlayer);
     gameBoardElement.style.pointerEvents = 'auto'; // Enable interaction
     // Update supply display
     if (supplyDisplayElement && data.supplies && mySymbol) {
         const mySupply = data.supplies[mySymbol];
-        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+        supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
 });
 
 socket.on('moveMade', (data) => {
     console.log('Move made:', data);
     createBoard(data.board);
-    currentPlayerDisplayElement.textContent = `Current Player: ${data.currentPlayer}`;
+    updateTurnDisplay(data.currentPlayer);
     // Update supply display
     if (supplyDisplayElement && data.supplies && mySymbol) {
         const mySupply = data.supplies[mySymbol];
-        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+        supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
     if (data.win) {
-        statusMessageElement.textContent = `Player ${data.playerId} wins!`;
+        statusMessageElement.textContent = `🎊 ${data.playerId} gewinnt!`;
         gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
         socket.emit('gameEnd', { reason: 'Win condition met' });
     } else {
@@ -156,37 +231,37 @@ socket.on('moveMade', (data) => {
 
 socket.on('playerLeft', (data) => {
     console.log(`Player left: ${data.playerId}`);
-    statusMessageElement.textContent = `Player ${data.playerId} has left the game.`;
+    statusMessageElement.textContent = `👋 ${data.playerId} hat das Spiel verlassen.`;
 });
 
 socket.on('gameEnd', (data) => {
     console.log('Game ended:', data.reason);
-    statusMessageElement.textContent = `Game ended: ${data.reason}`;
+    statusMessageElement.textContent = `🏁 Spiel beendet: ${data.reason}`;
     gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
 });
 
 socket.on('error', (data) => {
     console.error('Error:', data.message);
-    statusMessageElement.textContent = `Error: ${data.message}`;
+    statusMessageElement.textContent = `❌ Fehler: ${data.message}`;
 });
 
 socket.on('invalidMove', (message) => {
     console.warn('Invalid move:', message);
-    alert(`Invalid Move: ${message}`); // Simple feedback for now
+    showNotification(`Ungültiger Zug: ${message}`);
 });
 
 socket.on('gameFull', (message) => {
-    alert(message);
+    showNotification(message);
     statusMessageElement.textContent = message;
-    playerIdDisplayElement.textContent = 'Spectator Mode (Game Full)';
+    playerIdDisplayElement.textContent = '👁️ Zuschauer-Modus (Spiel voll)';
     // Disable board interaction if game is full and client is not a player
     gameBoardElement.style.pointerEvents = 'none'; 
 });
 
 socket.on('playerDisconnected', (message) => {
-    alert(message);
+    showNotification(message);
     statusMessageElement.textContent = message;
-    currentPlayerDisplayElement.textContent = 'Waiting for players...';
+    currentPlayerDisplayElement.textContent = 'Warten auf Spieler...';
     // Potentially clear board or show a reset state
     createBoard(Array(6).fill(null).map(() => Array(6).fill(null))); // Reset to empty board
     gameBoardElement.style.pointerEvents = 'auto'; // Re-enable board on reset
@@ -194,25 +269,22 @@ socket.on('playerDisconnected', (message) => {
 
 socket.on('gameOver', (data) => {
     console.log('Game Over:', data);
-    statusMessageElement.textContent = `${data.winnerName} WINS! Game Over.`;
-    currentPlayerDisplayElement.textContent = 'Game Ended';
-    alert(`${data.winnerName} WINS! Game Over.`);
+    statusMessageElement.textContent = `🎊 ${data.winnerName} GEWINNT! Spiel beendet.`;
+    updateTurnDisplay(null);
+    showNotification(`${data.winnerName} GEWINNT! 🎉`);
     // Disable further moves by making the board non-interactive
     gameBoardElement.style.pointerEvents = 'none'; 
-    // Optionally, you could add a 'New Game' button visibility here.
 });
 
 let specialPromotionActive = false;
-const specialPromotionButton = document.getElementById('specialPromotionButton'); // Assuming you add a button with this ID
-const specialPromotionMessageElement = document.getElementById('specialPromotionMessage'); // Optional message element
-const specialPromotionOfferArea = document.getElementById('specialPromotionOfferArea'); // Optional offer area element
+const specialPromotionButton = document.getElementById('specialPromotionButton');
+const specialPromotionMessageElement = document.getElementById('specialPromotionMessage');
+const specialPromotionOfferArea = document.getElementById('specialPromotionOfferArea');
 
 if (specialPromotionButton) {
     specialPromotionButton.style.display = 'none'; // Hide by default
     specialPromotionButton.addEventListener('click', () => {
-        // This button might not be needed if clicking a kitten directly is preferred after message
-        if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = 'Click one of your kittens to upgrade it to a cat!';
-        // The actual logic will be in cell click when specialPromotionActive is true
+        if (specialPromotionMessageElement) specialPromotionMessageElement.textContent = 'Klicke auf eines deiner Kätzchen, um es zu befördern!';
     });
 }
 
@@ -236,31 +308,18 @@ socket.on('hideSpecialPromotion', () => {
 socket.on('gameState', (data) => {
     console.log('GameState received:', data);
     createBoard(data.board);
-    currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Player: ${data.currentPlayer}` : '';
+    updateTurnDisplay(data.currentPlayer);
     statusMessageElement.textContent = data.message || '';
     // Update supply display
     if (supplyDisplayElement && data.supplies && mySymbol) {
         const mySupply = data.supplies[mySymbol];
-        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
-    }
-});
-
-// Modify gameState listener to hide special promotion if it's no longer offered implicitly by turn change
-socket.on('gameState', (data) => {
-    console.log('GameState received:', data);
-    createBoard(data.board);
-    statusMessageElement.textContent = data.message || '';
-    currentPlayerDisplayElement.textContent = data.currentPlayer ? `Current Turn: ${data.currentPlayer}` : '';
-    // Update supply display
-    if (supplyDisplayElement && data.supplies && mySymbol) {
-        const mySupply = data.supplies[mySymbol];
-        supplyDisplayElement.textContent = `Vorrat - Kätzchen: ${mySupply.kittensInSupply}, Katzen: ${mySupply.catsInSupply}`;
+        supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
 
     // If game is over or currentPlayer is null (e.g. before game starts), 
     // any pending special promotion offer is implicitly void.
     if (!data.currentPlayer || data.message.includes('Game Over')) {
-        if (specialPromotionActive) { // Only log and hide if it was active
+        if (specialPromotionActive) {
             console.log('[CLIENT DEBUG] specialPromotionActive set to false due to game state change (game over or player reset).');
             specialPromotionActive = false;
             if (specialPromotionButton) specialPromotionButton.style.display = 'none';

@@ -137,9 +137,16 @@ function updateTimerDisplay(seconds) {
         currentTimer = null;
     }
     
+    // Store the end time (current time + seconds)
+    const endTime = Date.now() + (seconds * 1000);
+    
     // Update the timer display
     const updateTimer = () => {
-        if (seconds <= 0) {
+        // Calculate remaining time in seconds
+        const remainingMs = endTime - Date.now();
+        const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+        
+        if (remainingSeconds <= 0) {
             clearInterval(currentTimer);
             timerDisplayElement.textContent = 'Zeit abgelaufen!';
             timerDisplayElement.className = 'timer-expired';
@@ -147,28 +154,26 @@ function updateTimerDisplay(seconds) {
         }
         
         // Format the time as MM:SS
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        const formattedTime = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        const minutes = Math.floor(remainingSeconds / 60);
+        const secs = remainingSeconds % 60;
+        const formattedTime = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
         // Update the display
         timerDisplayElement.textContent = `⏱️ ${formattedTime}`;
         
         // Add warning class when time is running low
-        if (seconds <= 10) {
+        if (remainingSeconds <= 10) {
             timerDisplayElement.className = 'timer-warning';
         } else {
             timerDisplayElement.className = 'timer-normal';
         }
-        
-        seconds--;
     };
     
     // Initial update
     updateTimer();
     
-    // Start the timer
-    currentTimer = setInterval(updateTimer, 1000);
+    // Start the timer - update every 100ms for smoother countdown
+    currentTimer = setInterval(updateTimer, 100);
 }
 
 function showNotification(message) {

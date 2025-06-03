@@ -4,6 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 
 const port = process.env.PORT || 3000;
+const TURN_TIMEOUT = 30000; // 30 seconds in milliseconds
 
 const app = express();
 const server = http.createServer(app);
@@ -19,7 +20,9 @@ function createSession() {
         players: {},
         currentPlayer: null,
         gameBoard: Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)),
-        gameActive: false
+        gameActive: false,
+        turnTimer: null,
+        remainingTime: TURN_TIMEOUT
     };
     console.log(`Session created: ${sessionId}`);
     return sessionId;
@@ -65,8 +68,12 @@ function joinSession(sessionId, socket) {
             supplies: Object.values(session.players).reduce((acc, p) => {
                 acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply };
                 return acc;
-            }, {})
+            }, {}),
+            remainingTime: TURN_TIMEOUT / 1000 // Send remaining time in seconds
         });
+        
+        // Start the timer for the first player
+        startTurnTimer(sessionId);
     }
     return true;
 }
@@ -484,9 +491,8 @@ io.on('connection', (socket) => {
 
         const win = checkForWin(session.gameBoard, player.symbol);
 
-        // Switch player
-        session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';
-        console.log(`Turn switched to ${session.currentPlayer} in session ${sessionId}`);
+        // Switch player and start timer
+        switchTurnAndStartTimer(sessionId);
 
         // Emit update to all in session
         io.to(sessionId).emit('moveMade', {
@@ -500,7 +506,8 @@ io.on('connection', (socket) => {
             supplies: Object.values(session.players).reduce((acc, p) => {
                 acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply };
                 return acc;
-            }, {})
+            }, {}),
+            remainingTime: TURN_TIMEOUT / 1000 // Send remaining time in seconds
         });
         console.log(`Move update emitted to session ${sessionId}`);
 
@@ -566,7 +573,7 @@ io.on('connection', (socket) => {
 
         // After special promotion: update counts and switch turn
         updatePlayerPieceCounts(session.gameBoard, session.players);
-        session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';
+        switchTurnAndStartTimer(sessionId);
         message += ` ${session.currentPlayer} ist am Zug.`;
         io.to(sessionId).emit('gameState', {
             board: session.gameBoard,
@@ -590,6 +597,11 @@ io.on('connection', (socket) => {
                 io.to(sessionId).emit('playerLeft', { playerId: socket.id });
                 if (Object.keys(session.players).length < 2) {
                     session.gameActive = false;
+                    // Clear any existing timer
+                    if (session.turnTimer) {
+                        clearTimeout(session.turnTimer);
+                        session.turnTimer = null;
+                    }
                     console.log(`Game ended in session ${sessionId} due to player disconnect`);
                     io.to(sessionId).emit('gameEnd', { reason: 'Ein Spieler hat die Verbindung getrennt' });
                 }
@@ -597,5 +609,61 @@ io.on('connection', (socket) => {
         }
     });
 });
+
+// Function to start the turn timer for a session
+function startTurnTimer(sessionId) {
+    const session = sessions[sessionId];
+    if (!session || !session.gameActive) return;
+    
+    // Clear any existing timer
+    if (session.turnTimer) {
+        clearTimeout(session.turnTimer);
+    }
+    
+    // Reset the remaining time
+    session.remainingTime = TURN_TIMEOUT;
+    
+    // Emit the initial timer value
+    io.to(sessionId).emit('timerUpdate', { remainingTime: session.remainingTime / 1000 });
+    
+    // Start a new timer
+    session.turnTimer = setTimeout(() => {
+        if (session && session.gameActive) {
+            console.log(`Timer expired for player ${session.currentPlayer} in session ${sessionId}`);
+            
+            // Switch to the next player
+            switchTurnAndStartTimer(sessionId);
+            
+            // Notify players that the turn was skipped due to timeout
+            io.to(sessionId).emit('turnSkipped', {
+                message: `${session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1'} hat nicht innerhalb von 30 Sekunden gespielt. Der Zug wurde übersprungen.`,
+                currentPlayer: session.currentPlayer
+            });
+        }
+    }, TURN_TIMEOUT);
+    
+    // Update the timer every second
+    const timerInterval = setInterval(() => {
+        if (session && session.gameActive && session.remainingTime > 0) {
+            session.remainingTime -= 1000;
+            io.to(sessionId).emit('timerUpdate', { remainingTime: session.remainingTime / 1000 });
+        } else {
+            clearInterval(timerInterval);
+        }
+    }, 1000);
+}
+
+// Function to switch turns and start a new timer
+function switchTurnAndStartTimer(sessionId) {
+    const session = sessions[sessionId];
+    if (!session || !session.gameActive) return;
+    
+    // Switch player
+    session.currentPlayer = session.currentPlayer === 'Spieler 1' ? 'Spieler 2' : 'Spieler 1';
+    console.log(`Turn switched to ${session.currentPlayer} in session ${sessionId}`);
+    
+    // Start a new timer for the next player
+    startTurnTimer(sessionId);
+}
 
 server.listen(port, () => console.log(`Listening on port ${port}`));

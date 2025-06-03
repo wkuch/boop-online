@@ -6,11 +6,13 @@ const currentPlayerDisplayElement = document.getElementById('current-player-disp
 const playerIdDisplayElement = document.getElementById('player-id-display');
 const inviteLinkElement = document.getElementById('invite-link');
 const supplyDisplayElement = document.getElementById('supply-display');
+const timerDisplayElement = document.getElementById('timer-display');
 
 let myPlayerId = null;
 let mySymbol = null;
 let myName = '';
 let currentSessionId = null;
+let currentTimer = null;
 
 function createBoard(boardData) {
     gameBoardElement.innerHTML = ''; // Clear previous board
@@ -126,6 +128,49 @@ function updateTurnDisplay(currentPlayer) {
     }
 }
 
+function updateTimerDisplay(seconds) {
+    if (!timerDisplayElement) return;
+    
+    // Clear any existing timer
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+    }
+    
+    // Update the timer display
+    const updateTimer = () => {
+        if (seconds <= 0) {
+            clearInterval(currentTimer);
+            timerDisplayElement.textContent = 'Zeit abgelaufen!';
+            timerDisplayElement.className = 'timer-expired';
+            return;
+        }
+        
+        // Format the time as MM:SS
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        const formattedTime = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        
+        // Update the display
+        timerDisplayElement.textContent = `⏱️ ${formattedTime}`;
+        
+        // Add warning class when time is running low
+        if (seconds <= 10) {
+            timerDisplayElement.className = 'timer-warning';
+        } else {
+            timerDisplayElement.className = 'timer-normal';
+        }
+        
+        seconds--;
+    };
+    
+    // Initial update
+    updateTimer();
+    
+    // Start the timer
+    currentTimer = setInterval(updateTimer, 1000);
+}
+
 function showNotification(message) {
     // Create a temporary notification
     const notification = document.createElement('div');
@@ -208,6 +253,11 @@ socket.on('gameStart', (data) => {
         const mySupply = data.supplies[mySymbol];
         supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
+    
+    // Initialize timer if provided
+    if (data.remainingTime) {
+        updateTimerDisplay(data.remainingTime);
+    }
 });
 
 socket.on('moveMade', (data) => {
@@ -226,6 +276,11 @@ socket.on('moveMade', (data) => {
     } else {
         statusMessageElement.textContent = '';
     }
+    
+    // Reset timer if provided
+    if (data.remainingTime) {
+        updateTimerDisplay(data.remainingTime);
+    }
 });
 
 socket.on('playerLeft', (data) => {
@@ -237,6 +292,15 @@ socket.on('gameEnd', (data) => {
     console.log('Game ended:', data.reason);
     statusMessageElement.textContent = `🏁 Spiel beendet: ${data.reason}`;
     gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
+    
+    // Clear the timer
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+    }
+    if (timerDisplayElement) {
+        timerDisplayElement.textContent = '';
+    }
 });
 
 socket.on('error', (data) => {
@@ -272,7 +336,16 @@ socket.on('gameOver', (data) => {
     updateTurnDisplay(null);
     showNotification(`${data.winnerName} GEWINNT! 🎉`);
     // Disable further moves by making the board non-interactive
-    gameBoardElement.style.pointerEvents = 'none'; 
+    gameBoardElement.style.pointerEvents = 'none';
+    
+    // Clear the timer
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+    }
+    if (timerDisplayElement) {
+        timerDisplayElement.textContent = '';
+    }
 });
 
 let specialPromotionActive = false;
@@ -314,6 +387,11 @@ socket.on('gameState', (data) => {
         const mySupply = data.supplies[mySymbol];
         supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
+    
+    // Reset timer if provided
+    if (data.remainingTime) {
+        updateTimerDisplay(data.remainingTime);
+    }
 
     // If game is over or currentPlayer is null (e.g. before game starts), 
     // any pending special promotion offer is implicitly void.
@@ -325,6 +403,21 @@ socket.on('gameState', (data) => {
             // The special promotion message is static in index.html and should not be cleared here.
         }
     }
+});
+
+// Add event listeners for timer updates
+socket.on('timerUpdate', (data) => {
+    if (data.remainingTime !== undefined) {
+        updateTimerDisplay(data.remainingTime);
+    }
+});
+
+// Add event listener for turn skipped due to timeout
+socket.on('turnSkipped', (data) => {
+    console.log('Turn skipped:', data);
+    showNotification(data.message);
+    statusMessageElement.textContent = data.message;
+    updateTurnDisplay(data.currentPlayer);
 });
 
 // Initialize

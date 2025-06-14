@@ -29,6 +29,31 @@ function createSession() {
     return sessionId;
 }
 
+function resetGameState(session) {
+    // Clear the game board
+    session.gameBoard = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+    
+    // Reset game state
+    session.currentPlayer = 'Spieler 1';
+    session.gameActive = true;
+    
+    // Clear timer
+    if (session.turnTimer) {
+        clearTimeout(session.turnTimer);
+        session.turnTimer = null;
+    }
+    session.remainingTime = TURN_TIMEOUT;
+    
+    // Reset all players to initial state
+    Object.values(session.players).forEach(player => {
+        player.kittensOnBoard = 0;
+        player.catsOnBoard = 0;
+        player.kittensInSupply = 8;
+        player.catsInSupply = 0;
+        player.specialPromotionOffered = false;
+    });
+}
+
 function joinSession(sessionId, socket) {
     if (!sessions[sessionId]) {
         console.log(`Session ${sessionId} does not exist`);
@@ -378,6 +403,34 @@ io.on('connection', (socket) => {
         session.timerEnabled = enabled;
         console.log(`Timer ${enabled ? 'enabled' : 'disabled'} in session ${sessionId}`);
         io.to(sessionId).emit('timerToggled', { enabled });
+    });
+
+    socket.on('newGame', (data) => {
+        const { sessionId } = data;
+        const session = sessions[sessionId];
+        if (!session) {
+            socket.emit('error', { message: 'Ungültige Sitzungs-ID' });
+            return;
+        }
+
+        // Only allow player 1 to start new game
+        const player = session.players[socket.id];
+        if (!player || player.symbol !== 'Spieler 1') {
+            socket.emit('error', { message: 'Nur Spieler 1 kann ein neues Spiel starten' });
+            return;
+        }
+
+        // Reset game state while preserving session and players
+        resetGameState(session);
+        console.log(`New game started in session ${sessionId}`);
+        
+        // Notify all players
+        io.to(sessionId).emit('newGameStarted');
+        io.to(sessionId).emit('gameStart', {
+            board: session.gameBoard,
+            currentPlayer: session.currentPlayer,
+            players: session.players
+        });
     });
 
     socket.on('makeMove', (data) => {

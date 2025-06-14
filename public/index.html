@@ -23,9 +23,13 @@
                 <div id="current-player-display" class="turn-display">Warten auf Spieler...</div>
                 <div id="supply-display" class="supply-display-inline">Vorrat wird geladen...</div>
                 <div class="timer-controls">
+                    <button id="new-game-btn" class="new-game-btn" onclick="requestNewGame()" style="display: none;">
+                        🔄 Neues Spiel
+                    </button>
                     <button id="timer-toggle" class="timer-toggle-btn" onclick="toggleTimer()">
                         ⏱️ Timer: AUS
                     </button>
+
                     <small id="timer-help" class="timer-help">Nur vor dem ersten Zug änderbar</small>
                     <div id="timer-status" class="timer-status" style="display: none;">
                         <span id="timer-status-text">Timer ist deaktiviert</span>
@@ -51,6 +55,18 @@
 
             <!-- Status Messages -->
             <div id="status-message" class="status-message" data-empty="true"></div>
+
+            <!-- New Game Confirmation Dialog -->
+            <div id="new-game-modal" class="modal-overlay" style="display: none;">
+                <div class="modal-content">
+                    <h3>🔄 Neues Spiel starten?</h3>
+                    <p>Bist du sicher, dass du ein neues Spiel starten möchtest? Das aktuelle Spiel wird beendet und zurückgesetzt.</p>
+                    <div class="modal-buttons">
+                        <button class="btn-cancel" onclick="cancelNewGame()">Abbrechen</button>
+                        <button class="btn-confirm" onclick="confirmNewGame()">Neues Spiel starten</button>
+                    </div>
+                </div>
+            </div>
 
             <!-- Special Promotion Area -->
             <div id="specialPromotionOfferArea" class="special-promotion-area" style="display: none;">

@@ -314,6 +314,7 @@ socket.on('playerAssignment', (data) => {
     }
     
     updatePlayerDisplay();
+    updateNewGameButton();
     console.log(`Assigned Player ID: ${myPlayerId}, Symbol: ${mySymbol}, Name: ${myName}`);
 });
 
@@ -527,6 +528,24 @@ socket.on('timerToggled', (data) => {
     showNotification(`Timer ${timerEnabled ? 'aktiviert' : 'deaktiviert'}`);
 });
 
+socket.on('newGameStarted', (data) => {
+    console.log('New game started');
+    showNotification('🔄 Neues Spiel gestartet!');
+    
+    // Reset UI elements
+    clearStatusMessage();
+    specialPromotionActive = false;
+    hideSpecialPromotionOffer();
+    
+    // Clear timer if running
+    if (currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+        timerDisplayElement.textContent = '';
+        gameBoardElement.classList.remove('low-time');
+    }
+});
+
 socket.on('error', (data) => {
     console.log('Server error:', data);
     showNotification(data.message);
@@ -545,6 +564,41 @@ if (sessionId) {
 } else {
     console.log('Creating new session');
     socket.emit('createSession');
+}
+
+function requestNewGame() {
+    if (mySymbol !== 'Spieler 1') {
+        showNotification('Nur Spieler 1 kann ein neues Spiel starten');
+        return;
+    }
+    
+    // Show confirmation dialog
+    const modal = document.getElementById('new-game-modal');
+    modal.style.display = 'flex';
+}
+
+function cancelNewGame() {
+    const modal = document.getElementById('new-game-modal');
+    modal.style.display = 'none';
+}
+
+function confirmNewGame() {
+    const modal = document.getElementById('new-game-modal');
+    modal.style.display = 'none';
+    
+    // Emit new game request to server
+    socket.emit('newGame', { sessionId: currentSessionId });
+}
+
+function updateNewGameButton() {
+    const newGameBtn = document.getElementById('new-game-btn');
+    if (newGameBtn) {
+        if (mySymbol === 'Spieler 1') {
+            newGameBtn.style.display = 'block';
+        } else {
+            newGameBtn.style.display = 'none';
+        }
+    }
 }
 
 function toggleTimer() {

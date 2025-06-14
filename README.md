@@ -38,24 +38,18 @@ Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Mul
 - ✅ Alle Gewinnbedingungen (3 Katzen in Reihe + 8 Katzen auf Brett)
 - ✅ Turn-Timer System (30 Sekunden pro Zug)
 - ✅ Real-time Multiplayer über Socket.IO
+- ✅ Optionaler Timer (einstellbar von Spieler 1 vor dem ersten Zug)
 
 **Was noch in Arbeit ist:**
 
-- Erwartetes timer verhalten
-    - timer kann vor dem ersten Zug von spieler 1 aktiviert bzw. deaktiviert werden
-    - timer ist standardmäßig deaktiviert
-    - wenn der timer aktiviert ist:
-        - jeder spieler hat 30 Sekunden pro Zug
-        - wenn der timer abläuft, wird der Zug automatisch beendet und der Zug des anderen Spielers beginnt
-        - der timer wird nach jedem Zug zurückgesetzt
-        - beide spieler sehen immer den Timer sodass sie immer wissen wie viel Zeit sie selbst oder der Gegner noch hat
-        - ein visueller Indikator wird angezeigt wenn der timer knapp ist
-    - wenn der timer deaktiviert ist:
-        - der timer wird nicht angezeigt
-        - jeder spieler hat so viel Zeit wie er will
+- Die option ein neues spiel zu starten mit der gleichen session. Beide spieler bleiben in der session und können ein neues spiel starten.
+    - Spieler 1 kann ein neues spiel starten
+    - Es wird ein confirm dialog angezeigt damit man nicht ausversehen das aktuelle spiel unterbricht
+    - Spieler 2 wird informiert dass ein neues spiel gestartet wurde
+- die Option mit seinem gegenspieler zu kommunizieren
+    - Beide spieler können eine reihe von Emojis schicken die dann bei dem andern spieler aufploppen
+    
 
-Was noch nicht daran funktioniert:
-- Spieler zwei sieht den Text " Nur vor dem ersten Zug änderbar" ohne den button, das ist verwirrend. Es sollte korrekt aussagen ob der timer aktiviert oder deaktiviert ist und dass dies von spieler 1 vor dem ersten Zug änderbar ist.
 
 ## Setup und Start
 

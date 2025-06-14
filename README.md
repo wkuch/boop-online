@@ -27,16 +27,23 @@ Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Mul
 
 **Was bereits funktioniert:**
 
-- Automatische session generierung
-- Einladen von Spielern durch Link
-- Spielerwechsel
-- Brett initialisierung
-- Spielzug
+- ✅ Automatische Session-Generierung
+- ✅ Einladen von Spielern durch Link
+- ✅ Vollständige Spielregeln und Spiellogik
+- ✅ Spielerwechsel
+- ✅ Brett-Initialisierung und Spielzüge
+- ✅ Boop-Mechanik (Figuren wegdrücken)
+- ✅ Aufwertungssystem (3er-Linien entfernen, Kätzchen zu Katzen)
+- ✅ Kitten Madness Regel
+- ✅ Alle Gewinnbedingungen (3 Katzen in Reihe + 8 Katzen auf Brett)
+- ✅ Turn-Timer System (30 Sekunden pro Zug)
+- ✅ Real-time Multiplayer über Socket.IO
 
-**Was noch nicht funktioniert / In Arbeit:**
-Folgende Regel funktioniert noch nicht:
-- Sieg: Wer zuerst drei Katzen in einer ununterbrochenen Reihe (horizontal, vertikal oder diagonal) hat, gewinnt das Spiel sofort. Alternativ gewinnt auch der Spieler der es schafft 8 Katzen auf dem Brett zu haben.
-    - Anmerkung: Die Gewinnbedingung dass der Spieler mit 8 Katzen gewinnt wird noch nicht erkannt. 
+**Was noch in Arbeit ist:**
+
+- Timer Ein/Aus-Schaltung vor dem ersten Zug
+    - Der Timer funktioniert vollständig, startet aber automatisch
+    - Eine Option zum Aktivieren/Deaktivieren vor Spielbeginn ist noch nicht implementiert 
 
 
 ## Setup und Start

@@ -63,17 +63,33 @@ body {
     box-shadow: 0 12px 40px rgba(0,0,0,0.15);
 }
 
-/* Player info */
-.player-info-card {
+/* Game Status Card - Consolidated */
+.game-status-card {
     background: linear-gradient(135deg, #2E86AB 0%, #A23B72 100%);
     color: white;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
 }
 
 .player-display {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 500;
-    margin-bottom: 0.5rem;
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.timer-display-inline {
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    padding: 0.25rem 0.5rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
 }
 
 .turn-display {
@@ -84,30 +100,25 @@ body {
     border-radius: 8px;
     text-align: center;
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    margin-bottom: 0.75rem;
 }
 
-/* Supply card - Improved readability */
-.supply-card {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    color: white;
-    border: 2px solid rgba(255,215,0,0.3);
-}
-
-.supply-display {
-    font-size: 1rem;
+.supply-display-inline {
+    font-size: 0.9rem;
     font-weight: 500;
     text-align: center;
     text-shadow: 0 1px 2px rgba(0,0,0,0.5);
     background: rgba(0,0,0,0.2);
     padding: 0.5rem;
-    border-radius: 8px;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
 }
 
-/* Timer display */
-.timer-card {
-    background: linear-gradient(135deg, #2c3e50 0%, #4ca1af 100%);
-    color: white;
-    border: 2px solid rgba(255,255,255,0.3);
+.timer-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
 }
 
 .timer-display {
@@ -145,6 +156,37 @@ body {
     }
 }
 
+.timer-toggle-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.timer-toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.timer-toggle-btn:active {
+    transform: translateY(0);
+}
+
+.timer-help {
+    display: block;
+    text-align: center;
+    margin-top: 0.25rem;
+    opacity: 0.8;
+    font-size: 0.75rem;
+}
+
 /* Status messages */
 .status-message {
     background: rgba(255, 255, 255, 0.95);
@@ -159,65 +201,75 @@ body {
     justify-content: center;
     width: 100%;
     color: #333;
+    transition: all 0.3s ease;
 }
 
-/* Piece selection - Improved contrast */
-.piece-selection-card {
-    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 100%);
-    border: 2px solid rgba(102, 126, 234, 0.2);
+.status-message:empty,
+.status-message[data-empty="true"] {
+    display: none;
+    opacity: 0;
+    height: 0;
+    padding: 0;
+    margin: 0;
 }
 
-.selection-title {
-    font-size: 1.1rem;
+/* Compact Piece Selection */
+.compact-piece-selection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+.selection-label {
+    font-size: 0.9rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
-    text-align: center;
     color: #2c3e50;
 }
 
-.piece-selection {
+.piece-selection-compact {
     display: flex;
-    gap: 1rem;
-    justify-content: center;
+    gap: 0.5rem;
 }
 
-.piece-option {
+.piece-option-compact {
     display: flex;
     align-items: center;
     cursor: pointer;
     transition: transform 0.2s ease;
 }
 
-.piece-option:hover {
-    transform: scale(1.05);
+.piece-option-compact:hover {
+    transform: scale(1.1);
 }
 
-.piece-option input[type="radio"] {
+.piece-option-compact input[type="radio"] {
     display: none;
 }
 
-.piece-label {
+.piece-label-compact {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
     background: rgba(255,255,255,0.9);
-    border-radius: 12px;
-    font-weight: 500;
+    border-radius: 50%;
+    font-size: 1.2rem;
     transition: all 0.2s ease;
-    border: 2px solid transparent;
-    color: #2c3e50;
+    border: 3px solid transparent;
 }
 
-.piece-option input[type="radio"]:checked + .piece-label {
+.piece-option-compact input[type="radio"]:checked + .piece-label-compact {
     background: white;
     border-color: #667eea;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    color: #667eea;
-}
-
-.piece-icon {
-    font-size: 1.2rem;
+    transform: scale(1.1);
 }
 
 /* Special promotion - Better contrast */
@@ -391,18 +443,14 @@ body {
     transform: scale(1.1);
 }
 
-/* Invite card - Better readability */
-.invite-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border: 2px solid rgba(108, 117, 125, 0.2);
-}
-
-.invite-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    text-align: center;
-    color: #2c3e50;
+/* Invite card - Moved to bottom, more compact */
+.invite-card-bottom {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(108, 117, 125, 0.2);
+    margin-top: 1rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .invite-link-container {
@@ -433,12 +481,13 @@ body {
     background: #667eea;
     color: white;
     border: none;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
     border-radius: 8px;
     font-weight: 500;
     cursor: pointer;
     transition: background 0.2s ease;
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    font-size: 1.2rem;
 }
 
 .copy-button:hover {
@@ -462,11 +511,11 @@ body {
     .invite-link-container {
         flex-direction: row;
         align-items: center;
+        gap: 0.5rem;
     }
     
     .invite-link {
         flex: 1;
-        margin-right: 0.5rem;
     }
 }
 

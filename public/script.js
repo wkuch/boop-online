@@ -13,6 +13,17 @@ let mySymbol = null;
 let myName = '';
 let currentSessionId = null;
 let currentTimer = null;
+let timerEnabled = true;
+
+function clearStatusMessage() {
+    statusMessageElement.textContent = '';
+    statusMessageElement.setAttribute('data-empty', 'true');
+}
+
+function setStatusMessage(message) {
+    setStatusMessage(message);
+    statusMessageElement.removeAttribute('data-empty');
+}
 
 function createBoard(boardData) {
     gameBoardElement.innerHTML = ''; // Clear previous board
@@ -244,13 +255,13 @@ socket.on('playerAssignment', (data) => {
 
 socket.on('playerJoined', (data) => {
     console.log(`Player joined: ${data.playerId} (${data.name})`);
-    statusMessageElement.textContent = `🎉 ${data.name} ist dem Spiel beigetreten!`;
+    setStatusMessage(`🎉 ${data.name} ist dem Spiel beigetreten!`);
 });
 
 socket.on('gameStart', (data) => {
     console.log('Game started!');
     createBoard(data.board);
-    statusMessageElement.textContent = '🚀 Spiel gestartet!';
+    setStatusMessage('🚀 Spiel gestartet!');
     updateTurnDisplay(data.currentPlayer);
     gameBoardElement.style.pointerEvents = 'auto'; // Enable interaction
     // Update supply display
@@ -259,9 +270,20 @@ socket.on('gameStart', (data) => {
         supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
     
-    // Initialize timer if provided
-    if (data.remainingTime) {
+    // Initialize timer state
+    timerEnabled = data.timerEnabled !== undefined ? data.timerEnabled : true;
+    const toggleButton = document.getElementById('timer-toggle');
+    if (toggleButton) {
+        toggleButton.textContent = timerEnabled ? '⏱️ Timer: AN' : '⏱️ Timer: AUS';
+        toggleButton.style.backgroundColor = timerEnabled ? '#4CAF50' : '#f44336';
+        toggleButton.style.display = mySymbol === 'Spieler 1' ? 'block' : 'none';
+    }
+    
+    // Initialize timer if enabled and provided
+    if (timerEnabled && data.remainingTime) {
         updateTimerDisplay(data.remainingTime);
+    } else if (!timerEnabled) {
+        timerDisplayElement.textContent = 'Timer deaktiviert';
     }
 });
 
@@ -275,11 +297,11 @@ socket.on('moveMade', (data) => {
         supplyDisplayElement.textContent = `🐱 Kätzchen: ${mySupply.kittensInSupply} | 🐈 Katzen: ${mySupply.catsInSupply}`;
     }
     if (data.win) {
-        statusMessageElement.textContent = `🎊 ${data.playerId} gewinnt!`;
+        setStatusMessage(`🎊 ${data.playerId} gewinnt!`);
         gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
         socket.emit('gameEnd', { reason: 'Win condition met' });
     } else {
-        statusMessageElement.textContent = '';
+        clearStatusMessage();
     }
     
     // Reset timer if provided
@@ -290,12 +312,12 @@ socket.on('moveMade', (data) => {
 
 socket.on('playerLeft', (data) => {
     console.log(`Player left: ${data.playerId}`);
-    statusMessageElement.textContent = `👋 ${data.playerId} hat das Spiel verlassen.`;
+    setStatusMessage(`👋 ${data.playerId} hat das Spiel verlassen.`);
 });
 
 socket.on('gameEnd', (data) => {
     console.log('Game ended:', data.reason);
-    statusMessageElement.textContent = `🏁 Spiel beendet: ${data.reason}`;
+    setStatusMessage(`🏁 Spiel beendet: ${data.reason}`);
     gameBoardElement.style.pointerEvents = 'none'; // Disable interaction
     
     // Clear the timer
@@ -310,7 +332,7 @@ socket.on('gameEnd', (data) => {
 
 socket.on('error', (data) => {
     console.error('Error:', data.message);
-    statusMessageElement.textContent = `❌ Fehler: ${data.message}`;
+    setStatusMessage(`❌ Fehler: ${data.message}`);
 });
 
 socket.on('invalidMove', (message) => {
@@ -320,7 +342,7 @@ socket.on('invalidMove', (message) => {
 
 socket.on('gameFull', (message) => {
     showNotification(message);
-    statusMessageElement.textContent = message;
+    setStatusMessage(message);
     playerIdDisplayElement.textContent = '👁️ Zuschauer-Modus (Spiel voll)';
     // Disable board interaction if game is full and client is not a player
     gameBoardElement.style.pointerEvents = 'none'; 
@@ -328,7 +350,7 @@ socket.on('gameFull', (message) => {
 
 socket.on('playerDisconnected', (message) => {
     showNotification(message);
-    statusMessageElement.textContent = message;
+    setStatusMessage(message);
     currentPlayerDisplayElement.textContent = 'Warten auf Spieler...';
     // Potentially clear board or show a reset state
     createBoard(Array(6).fill(null).map(() => Array(6).fill(null))); // Reset to empty board
@@ -337,7 +359,7 @@ socket.on('playerDisconnected', (message) => {
 
 socket.on('gameOver', (data) => {
     console.log('Game Over:', data);
-    statusMessageElement.textContent = `🎊 ${data.winnerName} GEWINNT! Spiel beendet.`;
+    setStatusMessage(`🎊 ${data.winnerName} GEWINNT! Spiel beendet.`);
     updateTurnDisplay(null);
     showNotification(`${data.winnerName} GEWINNT! 🎉`);
     // Disable further moves by making the board non-interactive
@@ -386,7 +408,11 @@ socket.on('gameState', (data) => {
     console.log('GameState received:', data);
     createBoard(data.board);
     updateTurnDisplay(data.currentPlayer);
-    statusMessageElement.textContent = data.message || '';
+    if (data.message) {
+        setStatusMessage(data.message);
+    } else {
+        clearStatusMessage();
+    }
     // Update supply display
     if (supplyDisplayElement && data.supplies && mySymbol) {
         const mySupply = data.supplies[mySymbol];
@@ -425,6 +451,28 @@ socket.on('turnSkipped', (data) => {
     updateTurnDisplay(data.currentPlayer);
 });
 
+socket.on('timerToggled', (data) => {
+    timerEnabled = data.enabled;
+    const toggleButton = document.getElementById('timer-toggle');
+    if (toggleButton) {
+        toggleButton.textContent = timerEnabled ? '⏱️ Timer: AN' : '⏱️ Timer: AUS';
+        toggleButton.style.backgroundColor = timerEnabled ? '#4CAF50' : '#f44336';
+    }
+    
+    if (!timerEnabled && currentTimer) {
+        clearInterval(currentTimer);
+        currentTimer = null;
+        timerDisplayElement.textContent = 'Timer deaktiviert';
+    }
+    
+    showNotification(`Timer ${timerEnabled ? 'aktiviert' : 'deaktiviert'}`);
+});
+
+socket.on('error', (data) => {
+    console.log('Server error:', data);
+    showNotification(data.message);
+});
+
 // Initialize
 createBoard(Array(6).fill(null).map(() => Array(6).fill(null))); // Initial empty board
 gameBoardElement.style.pointerEvents = 'auto'; // Ensure board is interactive at start
@@ -438,4 +486,21 @@ if (sessionId) {
 } else {
     console.log('Creating new session');
     socket.emit('createSession');
+}
+
+function toggleTimer() {
+    if (mySymbol !== 'Spieler 1') {
+        showNotification('Nur Spieler 1 kann den Timer ändern');
+        return;
+    }
+    
+    // Check if any moves have been made
+    const boardEmpty = document.querySelectorAll('.cell img').length === 0;
+    if (!boardEmpty) {
+        showNotification('Timer kann nur vor dem ersten Zug geändert werden');
+        return;
+    }
+    
+    timerEnabled = !timerEnabled;
+    socket.emit('toggleTimer', { sessionId: currentSessionId, enabled: timerEnabled });
 }

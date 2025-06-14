@@ -22,7 +22,8 @@ function createSession() {
         gameBoard: Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null)),
         gameActive: false,
         turnTimer: null,
-        remainingTime: TURN_TIMEOUT
+        remainingTime: TURN_TIMEOUT,
+        timerEnabled: true
     };
     console.log(`Session created: ${sessionId}`);
     return sessionId;
@@ -69,11 +70,14 @@ function joinSession(sessionId, socket) {
                 acc[p.symbol] = { kittensInSupply: p.kittensInSupply, catsInSupply: p.catsInSupply };
                 return acc;
             }, {}),
-            remainingTime: TURN_TIMEOUT / 1000 // Send remaining time in seconds
+            remainingTime: session.timerEnabled ? TURN_TIMEOUT / 1000 : null,
+            timerEnabled: session.timerEnabled
         });
         
-        // Start the timer for the first player
-        startTurnTimer(sessionId);
+        // Start the timer for the first player if enabled
+        if (session.timerEnabled) {
+            startTurnTimer(sessionId);
+        }
     }
     return true;
 }
@@ -342,6 +346,33 @@ io.on('connection', (socket) => {
         console.log(`Session ${sessionId} created for client ${socket.id}`);
         socket.emit('sessionCreated', { sessionId });
         joinSession(sessionId, socket);
+    });
+
+    socket.on('toggleTimer', (data) => {
+        const { sessionId, enabled } = data;
+        const session = sessions[sessionId];
+        if (!session) {
+            socket.emit('error', { message: 'Ungültige Sitzungs-ID' });
+            return;
+        }
+
+        // Only allow timer toggle before first move
+        const boardEmpty = session.gameBoard.every(row => row.every(cell => cell === null));
+        if (!boardEmpty) {
+            socket.emit('error', { message: 'Timer kann nur vor dem ersten Zug geändert werden' });
+            return;
+        }
+
+        // Only allow player 1 to toggle timer
+        const player = session.players[socket.id];
+        if (!player || player.symbol !== 'Spieler 1') {
+            socket.emit('error', { message: 'Nur Spieler 1 kann den Timer ändern' });
+            return;
+        }
+
+        session.timerEnabled = enabled;
+        console.log(`Timer ${enabled ? 'enabled' : 'disabled'} in session ${sessionId}`);
+        io.to(sessionId).emit('timerToggled', { enabled });
     });
 
     socket.on('makeMove', (data) => {
@@ -629,7 +660,7 @@ io.on('connection', (socket) => {
 // Function to start the turn timer for a session
 function startTurnTimer(sessionId) {
     const session = sessions[sessionId];
-    if (!session || !session.gameActive) return;
+    if (!session || !session.gameActive || !session.timerEnabled) return;
 
     // Clear any existing timer
     if (session.turnTimer) {

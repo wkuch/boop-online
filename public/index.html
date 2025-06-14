@@ -14,40 +14,39 @@
         </header>
 
         <main class="game-main">
-            <!-- Player Info Card -->
-            <div class="info-card player-info-card">
-                <div id="player-id-display" class="player-display">Verbinde...</div>
+            <!-- Game Status Card -->
+            <div class="info-card game-status-card">
+                <div class="status-row">
+                    <div id="player-id-display" class="player-display">Verbinde...</div>
+                    <div id="timer-display" class="timer-display-inline"></div>
+                </div>
                 <div id="current-player-display" class="turn-display">Warten auf Spieler...</div>
+                <div id="supply-display" class="supply-display-inline">Vorrat wird geladen...</div>
+                <div class="timer-controls">
+                    <button id="timer-toggle" class="timer-toggle-btn" onclick="toggleTimer()">
+                        ⏱️ Timer: AN
+                    </button>
+                    <small class="timer-help">Nur vor dem ersten Zug änderbar</small>
+                </div>
             </div>
 
-            <!-- Supply Info Card -->
-            <div class="info-card supply-card">
-                <div id="supply-display" class="supply-display">Vorrat wird geladen...</div>
-            </div>
-
-            <!-- Status Messages -->
-            <div id="status-message" class="status-message"></div>
-
-            <!-- Piece Selection Card -->
-            <div class="info-card piece-selection-card">
-                <h3 class="selection-title">Figur wählen:</h3>
-                <div id="piece-selection" class="piece-selection">
-                    <label class="piece-option">
+            <!-- Piece Selection -->
+            <div class="compact-piece-selection">
+                <span class="selection-label">Figur:</span>
+                <div id="piece-selection" class="piece-selection-compact">
+                    <label class="piece-option-compact">
                         <input type="radio" name="pieceType" value="kitten" checked>
-                        <span class="piece-label">
-                            <span class="piece-icon">🐱</span>
-                            Kätzchen
-                        </span>
+                        <span class="piece-label-compact">🐱</span>
                     </label>
-                    <label class="piece-option">
+                    <label class="piece-option-compact">
                         <input type="radio" name="pieceType" value="cat">
-                        <span class="piece-label">
-                            <span class="piece-icon">🐈</span>
-                            Katze
-                        </span>
+                        <span class="piece-label-compact">🐈</span>
                     </label>
                 </div>
             </div>
+
+            <!-- Status Messages -->
+            <div id="status-message" class="status-message" data-empty="true"></div>
 
             <!-- Special Promotion Area -->
             <div id="specialPromotionOfferArea" class="special-promotion-area" style="display: none;">
@@ -59,11 +58,6 @@
                 </div>
             </div>
 
-            <!-- Timer Display -->
-            <div class="info-card timer-card">
-                <div id="timer-display" class="timer-display"></div>
-            </div>
-
             <!-- Game Board -->
             <div class="board-container">
                 <div id="game-board" class="game-board">
@@ -71,15 +65,15 @@
                 </div>
             </div>
 
-            <!-- Invite Link Card -->
-            <div class="info-card invite-card">
-                <h3 class="invite-title">Freund einladen:</h3>
-                <div class="invite-link-container">
-                    <a id="invite-link" href="#" class="invite-link">Lädt...</a>
-                    <button class="copy-button" onclick="copyInviteLink()">📋 Kopieren</button>
-                </div>
-            </div>
         </main>
+
+        <!-- Invite Link Card - Moved to bottom -->
+        <div class="info-card invite-card invite-card-bottom">
+            <div class="invite-link-container">
+                <a id="invite-link" href="#" class="invite-link">Lädt...</a>
+                <button class="copy-button" onclick="copyInviteLink()">📋</button>
+            </div>
+        </div>
 
         <section id="rules-overview" class="rules-card">
             <h2>Spielregeln im Überblick</h2>

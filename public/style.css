@@ -119,6 +119,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 .timer-display {
@@ -227,6 +228,62 @@ body {
 }
 
 .new-game-btn:active {
+    transform: translateY(0);
+}
+
+/* Small Rules Button */
+.rules-btn-small {
+    background: #9C27B0;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.rules-btn-small:hover {
+    background: #7B1FA2;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.rules-btn-small:active {
+    transform: translateY(0);
+}
+
+/* Rules Section */
+.rules-section {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.rules-btn {
+    background: #FF7043;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.rules-btn:hover {
+    background: #FF5722;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.rules-btn:active {
     transform: translateY(0);
 }
 

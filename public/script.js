@@ -276,18 +276,12 @@ function copyInviteLink() {
     const inviteLink = document.getElementById('invite-link');
     if (inviteLink && inviteLink.href !== '#') {
         navigator.clipboard.writeText(inviteLink.href).then(() => {
-            const copyButton = document.querySelector('.copy-button');
-            const originalText = copyButton.textContent;
-            copyButton.textContent = '✅ Kopiert!';
-            copyButton.style.background = '#4CAF50';
-            
-            setTimeout(() => {
-                copyButton.textContent = originalText;
-                copyButton.style.background = '';
-            }, 2000);
+            showNotification('📋 Link kopiert!');
         }).catch(() => {
-            showNotification('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+            showNotification('❌ Kopieren fehlgeschlagen. Bitte manuell kopieren.');
         });
+    } else {
+        showNotification('❌ Kein Link zum Kopieren verfügbar.');
     }
 }
 
@@ -577,9 +571,36 @@ function requestNewGame() {
         return;
     }
     
-    // Show confirmation dialog
+    // Check if there's a second player connected
+    // We can check this by looking at the current player display or other indicators
+    const currentPlayerDisplay = document.getElementById('current-player-display').textContent;
+    
+    // If waiting for players or only one player, scroll to invite section
+    if (currentPlayerDisplay.includes('Warten auf Spieler') || currentPlayerDisplay.includes('Warten auf')) {
+        scrollToInviteSection();
+        showNotification('Lade zuerst einen zweiten Spieler ein!');
+        return;
+    }
+    
+    // Show confirmation dialog for new game
     const modal = document.getElementById('new-game-modal');
     modal.style.display = 'flex';
+}
+
+function scrollToInviteSection() {
+    const inviteSection = document.querySelector('.invite-card-bottom');
+    if (inviteSection) {
+        inviteSection.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'center'
+        });
+        
+        // Add a subtle highlight effect
+        inviteSection.style.boxShadow = '0 0 20px rgba(76, 175, 80, 0.4)';
+        setTimeout(() => {
+            inviteSection.style.boxShadow = '';
+        }, 3000);
+    }
 }
 
 function cancelNewGame() {
@@ -640,6 +661,22 @@ function showEmojiPopup(emoji, senderName) {
             popup.parentNode.removeChild(popup);
         }
     }, 3000);
+}
+
+function scrollToRules() {
+    const rulesSection = document.getElementById('rules-overview');
+    if (rulesSection) {
+        rulesSection.scrollIntoView({ 
+            behavior: 'smooth',
+            block: 'start'
+        });
+        
+        // Add a subtle highlight effect
+        rulesSection.style.boxShadow = '0 0 20px rgba(255, 112, 67, 0.4)';
+        setTimeout(() => {
+            rulesSection.style.boxShadow = '';
+        }, 2000);
+    }
 }
 
 function toggleTimer() {

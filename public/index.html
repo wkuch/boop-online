@@ -24,9 +24,13 @@
                 <div id="supply-display" class="supply-display-inline">Vorrat wird geladen...</div>
                 <div class="timer-controls">
                     <button id="timer-toggle" class="timer-toggle-btn" onclick="toggleTimer()">
-                        ⏱️ Timer: AN
+                        ⏱️ Timer: AUS
                     </button>
-                    <small class="timer-help">Nur vor dem ersten Zug änderbar</small>
+                    <small id="timer-help" class="timer-help">Nur vor dem ersten Zug änderbar</small>
+                    <div id="timer-status" class="timer-status" style="display: none;">
+                        <span id="timer-status-text">Timer ist deaktiviert</span>
+                        <small>(Einstellung durch Spieler 1)</small>
+                    </div>
                 </div>
             </div>
 

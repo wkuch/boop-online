@@ -157,7 +157,7 @@ body {
 }
 
 .timer-toggle-btn {
-    background: #4CAF50;
+    background: #f44336;
     color: white;
     border: none;
     padding: 0.5rem 1rem;
@@ -185,6 +185,24 @@ body {
     margin-top: 0.25rem;
     opacity: 0.8;
     font-size: 0.75rem;
+}
+
+.timer-status {
+    text-align: center;
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+}
+
+.timer-status span {
+    font-weight: 600;
+    color: white;
+}
+
+.timer-status small {
+    display: block;
+    opacity: 0.8;
+    font-size: 0.7rem;
+    margin-top: 0.1rem;
 }
 
 /* Status messages */
@@ -410,6 +428,33 @@ body {
     box-shadow: 0 12px 40px rgba(0,0,0,0.2);
     width: min(90vw, 400px);
     aspect-ratio: 1;
+    transition: all 0.3s ease;
+}
+
+.game-board.low-time {
+    border: 4px solid #ff4444;
+    box-shadow: 
+        0 0 20px rgba(255, 68, 68, 0.6),
+        0 0 40px rgba(255, 68, 68, 0.4),
+        0 12px 40px rgba(0,0,0,0.2);
+    animation: urgentPulse 1s infinite alternate;
+}
+
+@keyframes urgentPulse {
+    0% {
+        border-color: #ff4444;
+        box-shadow: 
+            0 0 20px rgba(255, 68, 68, 0.6),
+            0 0 40px rgba(255, 68, 68, 0.4),
+            0 12px 40px rgba(0,0,0,0.2);
+    }
+    100% {
+        border-color: #ff6666;
+        box-shadow: 
+            0 0 30px rgba(255, 68, 68, 0.8),
+            0 0 60px rgba(255, 68, 68, 0.6),
+            0 12px 40px rgba(0,0,0,0.2);
+    }
 }
 
 .cell {

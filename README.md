@@ -41,10 +41,21 @@ Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Mul
 
 **Was noch in Arbeit ist:**
 
-- Timer Ein/Aus-Schaltung vor dem ersten Zug
-    - Der Timer funktioniert vollständig, startet aber automatisch
-    - Eine Option zum Aktivieren/Deaktivieren vor Spielbeginn ist noch nicht implementiert 
+- Erwartetes timer verhalten
+    - timer kann vor dem ersten Zug von spieler 1 aktiviert bzw. deaktiviert werden
+    - timer ist standardmäßig deaktiviert
+    - wenn der timer aktiviert ist:
+        - jeder spieler hat 30 Sekunden pro Zug
+        - wenn der timer abläuft, wird der Zug automatisch beendet und der Zug des anderen Spielers beginnt
+        - der timer wird nach jedem Zug zurückgesetzt
+        - beide spieler sehen immer den Timer sodass sie immer wissen wie viel Zeit sie selbst oder der Gegner noch hat
+        - ein visueller Indikator wird angezeigt wenn der timer knapp ist
+    - wenn der timer deaktiviert ist:
+        - der timer wird nicht angezeigt
+        - jeder spieler hat so viel Zeit wie er will
 
+Was noch nicht daran funktioniert:
+- Spieler zwei sieht den Text " Nur vor dem ersten Zug änderbar" ohne den button, das ist verwirrend. Es sollte korrekt aussagen ob der timer aktiviert oder deaktiviert ist und dass dies von spieler 1 vor dem ersten Zug änderbar ist.
 
 ## Setup und Start
 

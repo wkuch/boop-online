@@ -23,7 +23,7 @@ function createSession() {
         gameActive: false,
         turnTimer: null,
         remainingTime: TURN_TIMEOUT,
-        timerEnabled: true
+        timerEnabled: false
     };
     console.log(`Session created: ${sessionId}`);
     return sessionId;
@@ -57,7 +57,12 @@ function joinSession(sessionId, socket) {
     };
     socket.join(sessionId);
     console.log(`Player ${playerId} joined session ${sessionId} as ${playerSymbol}`);
-    socket.emit('playerAssignment', { playerId, symbol: playerSymbol, name: playerColors[playerSymbol] });
+    socket.emit('playerAssignment', { 
+        playerId, 
+        symbol: playerSymbol, 
+        name: playerColors[playerSymbol],
+        timerEnabled: session.timerEnabled 
+    });
     io.to(sessionId).emit('playerJoined', { playerId, name: playerColors[playerSymbol] });
     if (Object.keys(session.players).length === 2) {
         session.gameActive = true;

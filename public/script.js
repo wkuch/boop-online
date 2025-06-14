@@ -13,7 +13,8 @@ let mySymbol = null;
 let myName = '';
 let currentSessionId = null;
 let currentTimer = null;
-let timerEnabled = true;
+let timerEnabled = false;
+let currentPlayer = null;
 
 function clearStatusMessage() {
     statusMessageElement.textContent = '';
@@ -21,8 +22,34 @@ function clearStatusMessage() {
 }
 
 function setStatusMessage(message) {
-    setStatusMessage(message);
+    statusMessageElement.textContent = message;
     statusMessageElement.removeAttribute('data-empty');
+}
+
+function updateTimerControls() {
+    const toggleButton = document.getElementById('timer-toggle');
+    const timerHelp = document.getElementById('timer-help');
+    const timerStatus = document.getElementById('timer-status');
+    const timerStatusText = document.getElementById('timer-status-text');
+    
+    if (mySymbol === 'Spieler 1') {
+        // Show button and help text for player 1
+        if (toggleButton) {
+            toggleButton.textContent = timerEnabled ? '⏱️ Timer: AN' : '⏱️ Timer: AUS';
+            toggleButton.style.backgroundColor = timerEnabled ? '#4CAF50' : '#f44336';
+            toggleButton.style.display = 'block';
+        }
+        if (timerHelp) timerHelp.style.display = 'block';
+        if (timerStatus) timerStatus.style.display = 'none';
+    } else {
+        // Show status message for player 2
+        if (toggleButton) toggleButton.style.display = 'none';
+        if (timerHelp) timerHelp.style.display = 'none';
+        if (timerStatus && timerStatusText) {
+            timerStatusText.textContent = timerEnabled ? 'Timer ist aktiviert' : 'Timer ist deaktiviert';
+            timerStatus.style.display = 'block';
+        }
+    }
 }
 
 function createBoard(boardData) {
@@ -121,22 +148,25 @@ function updatePlayerDisplay() {
     }
 }
 
-function updateTurnDisplay(currentPlayer) {
-    const isMyTurn = currentPlayer === myName;
+function updateTurnDisplay(currentPlayerParam) {
+    currentPlayer = currentPlayerParam; // Track current player globally
+    const isMyTurn = currentPlayerParam === mySymbol;
     const turnElement = currentPlayerDisplayElement;
     
-    if (currentPlayer) {
+    if (currentPlayerParam) {
         if (isMyTurn) {
             turnElement.textContent = `🎯 Du bist dran!`;
             turnElement.className = 'turn-display your-turn';
         } else {
-            turnElement.textContent = `⏳ ${currentPlayer} ist dran`;
+            turnElement.textContent = `⏳ ${currentPlayerParam} ist dran`;
             turnElement.className = 'turn-display opponent-turn';
         }
     } else {
         turnElement.textContent = 'Warten auf Spieler...';
         turnElement.className = 'turn-display';
     }
+    
+    // Note: low-time indicator is managed by the timer, not by turn display
 }
 
 function updateTimerDisplay(seconds) {
@@ -148,19 +178,37 @@ function updateTimerDisplay(seconds) {
         currentTimer = null;
     }
     
+    // If timer is disabled, hide the timer display completely
+    if (!timerEnabled) {
+        timerDisplayElement.textContent = '';
+        gameBoardElement.classList.remove('low-time');
+        return;
+    }
+    
     // Store the end time (current time + seconds)
     const endTime = Date.now() + (seconds * 1000);
     
     // Update the timer display
     const updateTimer = () => {
+        // Check if timer is still enabled
+        if (!timerEnabled) {
+            clearInterval(currentTimer);
+            currentTimer = null;
+            timerDisplayElement.textContent = '';
+            gameBoardElement.classList.remove('low-time');
+            return;
+        }
+        
         // Calculate remaining time in seconds
         const remainingMs = endTime - Date.now();
         const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
         
         if (remainingSeconds <= 0) {
             clearInterval(currentTimer);
+            currentTimer = null;
             timerDisplayElement.textContent = 'Zeit abgelaufen!';
             timerDisplayElement.className = 'timer-expired';
+            gameBoardElement.classList.remove('low-time');
             return;
         }
         
@@ -169,14 +217,23 @@ function updateTimerDisplay(seconds) {
         const secs = remainingSeconds % 60;
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         
-        // Update the display
-        timerDisplayElement.textContent = `⏱️ ${formattedTime}`;
+        // Update the display - always show timer when enabled
+        // Determine if it's my turn (use mySymbol, not myName)
+        const isMyTurn = (currentPlayer === mySymbol);
         
-        // Add warning class when time is running low
-        if (remainingSeconds <= 10) {
+        if (isMyTurn) {
+            timerDisplayElement.textContent = `⏱️ ${formattedTime}`;
+        } else {
+            timerDisplayElement.textContent = `⏱️ ${formattedTime} (Gegner)`;
+        }
+        
+        // Add warning class and board indicator when time is running low AND it's my turn
+        if (remainingSeconds <= 10 && isMyTurn) {
             timerDisplayElement.className = 'timer-warning';
+            gameBoardElement.classList.add('low-time');
         } else {
             timerDisplayElement.className = 'timer-normal';
+            gameBoardElement.classList.remove('low-time');
         }
     };
     
@@ -249,6 +306,13 @@ socket.on('playerAssignment', (data) => {
     myPlayerId = data.playerId;
     mySymbol = data.symbol;
     myName = data.name;
+    
+    // Initialize timer state from server
+    if (data.timerEnabled !== undefined) {
+        timerEnabled = data.timerEnabled;
+        updateTimerControls();
+    }
+    
     updatePlayerDisplay();
     console.log(`Assigned Player ID: ${myPlayerId}, Symbol: ${mySymbol}, Name: ${myName}`);
 });
@@ -271,19 +335,15 @@ socket.on('gameStart', (data) => {
     }
     
     // Initialize timer state
-    timerEnabled = data.timerEnabled !== undefined ? data.timerEnabled : true;
-    const toggleButton = document.getElementById('timer-toggle');
-    if (toggleButton) {
-        toggleButton.textContent = timerEnabled ? '⏱️ Timer: AN' : '⏱️ Timer: AUS';
-        toggleButton.style.backgroundColor = timerEnabled ? '#4CAF50' : '#f44336';
-        toggleButton.style.display = mySymbol === 'Spieler 1' ? 'block' : 'none';
-    }
+    timerEnabled = data.timerEnabled !== undefined ? data.timerEnabled : false;
+    updateTimerControls();
     
     // Initialize timer if enabled and provided
     if (timerEnabled && data.remainingTime) {
         updateTimerDisplay(data.remainingTime);
     } else if (!timerEnabled) {
-        timerDisplayElement.textContent = 'Timer deaktiviert';
+        timerDisplayElement.textContent = '';
+        gameBoardElement.classList.remove('low-time');
     }
 });
 
@@ -328,6 +388,7 @@ socket.on('gameEnd', (data) => {
     if (timerDisplayElement) {
         timerDisplayElement.textContent = '';
     }
+    gameBoardElement.classList.remove('low-time');
 });
 
 socket.on('error', (data) => {
@@ -373,6 +434,7 @@ socket.on('gameOver', (data) => {
     if (timerDisplayElement) {
         timerDisplayElement.textContent = '';
     }
+    gameBoardElement.classList.remove('low-time');
 });
 
 let specialPromotionActive = false;
@@ -453,16 +515,13 @@ socket.on('turnSkipped', (data) => {
 
 socket.on('timerToggled', (data) => {
     timerEnabled = data.enabled;
-    const toggleButton = document.getElementById('timer-toggle');
-    if (toggleButton) {
-        toggleButton.textContent = timerEnabled ? '⏱️ Timer: AN' : '⏱️ Timer: AUS';
-        toggleButton.style.backgroundColor = timerEnabled ? '#4CAF50' : '#f44336';
-    }
+    updateTimerControls();
     
     if (!timerEnabled && currentTimer) {
         clearInterval(currentTimer);
         currentTimer = null;
-        timerDisplayElement.textContent = 'Timer deaktiviert';
+        timerDisplayElement.textContent = '';
+        gameBoardElement.classList.remove('low-time');
     }
     
     showNotification(`Timer ${timerEnabled ? 'aktiviert' : 'deaktiviert'}`);

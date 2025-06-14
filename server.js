@@ -51,6 +51,7 @@ function resetGameState(session) {
         player.kittensInSupply = 8;
         player.catsInSupply = 0;
         player.specialPromotionOffered = false;
+        player.lastEmojiSent = 0;
     });
 }
 
@@ -78,7 +79,8 @@ function joinSession(sessionId, socket) {
         kittensInSupply: 8, // initial kitten supply
         catsInSupply: 0,    // initial cat supply
         totalPiecesAllowed: 8,
-        specialPromotionOffered: false
+        specialPromotionOffered: false,
+        lastEmojiSent: 0    // for rate limiting
     };
     socket.join(sessionId);
     console.log(`Player ${playerId} joined session ${sessionId} as ${playerSymbol}`);
@@ -430,6 +432,39 @@ io.on('connection', (socket) => {
             board: session.gameBoard,
             currentPlayer: session.currentPlayer,
             players: session.players
+        });
+    });
+
+    socket.on('sendEmoji', (data) => {
+        const { sessionId, emoji, senderName } = data;
+        const session = sessions[sessionId];
+        if (!session) {
+            socket.emit('error', { message: 'Ungültige Sitzungs-ID' });
+            return;
+        }
+
+        // Verify sender is part of this session
+        const player = session.players[socket.id];
+        if (!player) {
+            socket.emit('error', { message: 'Du bist nicht Teil dieser Session' });
+            return;
+        }
+
+        // No rate limiting - removed cooldown
+
+        // Validate emoji (basic sanitation)
+        const allowedEmojis = ['👍', '👎', '😊', '😮', '🤔', '😤', '🎉', '😅', '🤦', '⚡'];
+        if (!allowedEmojis.includes(emoji)) {
+            socket.emit('error', { message: 'Ungültiges Emoji' });
+            return;
+        }
+
+        console.log(`Emoji ${emoji} sent by ${senderName} in session ${sessionId}`);
+        
+        // Broadcast emoji to other players in the session (not to sender)
+        socket.to(sessionId).emit('emojiReceived', { 
+            emoji: emoji, 
+            senderName: senderName 
         });
     });
 

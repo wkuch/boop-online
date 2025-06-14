@@ -546,6 +546,11 @@ socket.on('newGameStarted', (data) => {
     }
 });
 
+socket.on('emojiReceived', (data) => {
+    console.log('Emoji received:', data);
+    showEmojiPopup(data.emoji, data.senderName);
+});
+
 socket.on('error', (data) => {
     console.log('Server error:', data);
     showNotification(data.message);
@@ -599,6 +604,42 @@ function updateNewGameButton() {
             newGameBtn.style.display = 'none';
         }
     }
+}
+
+function sendEmoji(emoji) {
+    if (!currentSessionId || !mySymbol) {
+        showNotification('Verbindung nicht bereit');
+        return;
+    }
+    
+    // No rate limiting - removed cooldown
+    socket.emit('sendEmoji', { 
+        sessionId: currentSessionId, 
+        emoji: emoji,
+        senderName: myName 
+    });
+}
+
+function showEmojiPopup(emoji, senderName) {
+    const container = document.getElementById('emoji-popup-container');
+    
+    // Create simple emoji element
+    const popup = document.createElement('div');
+    popup.className = 'emoji-popup-simple';
+    popup.textContent = emoji;
+    
+    // Add random horizontal offset
+    const offsetX = (Math.random() - 0.5) * 200;
+    popup.style.left = `calc(50% + ${offsetX}px)`;
+    
+    container.appendChild(popup);
+    
+    // Remove popup after animation completes
+    setTimeout(() => {
+        if (popup.parentNode) {
+            popup.parentNode.removeChild(popup);
+        }
+    }, 3000);
 }
 
 function toggleTimer() {

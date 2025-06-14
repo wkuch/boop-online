@@ -39,15 +39,15 @@ Ziel ist die vollständige Implementierung des Brettspiels "Boop" als Online-Mul
 - ✅ Turn-Timer System (30 Sekunden pro Zug)
 - ✅ Real-time Multiplayer über Socket.IO
 - ✅ Optionaler Timer (einstellbar von Spieler 1 vor dem ersten Zug)
+- ✅ Neues Spiel Feature - Spiel zurücksetzen ohne Session zu verlassen
+- ✅ Emoji-Kommunikation zwischen Spielern
+    - ✅ 10 verschiedene Emojis zur Auswahl (👍, 👎, 😊, 😮, 🤔, 😤, 🎉, 😅, 🤦, ⚡)
+    - ✅ Emojis erscheinen als große, schwebende Animation vom Bildschirmrand
+    - ✅ Sanfte Bewegung mit natürlicher Physik und Ausblendeffekt
+    - ✅ Keine Wartezeit - unbegrenzte Emoji-Kommunikation
 
 **Was noch in Arbeit ist:**
-
-- Die option ein neues spiel zu starten mit der gleichen session. Beide spieler bleiben in der session und können ein neues spiel starten.
-    - Spieler 1 kann ein neues spiel starten
-    - Es wird ein confirm dialog angezeigt damit man nicht ausversehen das aktuelle spiel unterbricht
-    - Spieler 2 wird informiert dass ein neues spiel gestartet wurde
-- die Option mit seinem gegenspieler zu kommunizieren
-    - Beide spieler können eine reihe von Emojis schicken die dann bei dem andern spieler aufploppen
+- Weitere Features nach Bedarf
     
 
 

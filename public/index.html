@@ -56,6 +56,9 @@
             <!-- Status Messages -->
             <div id="status-message" class="status-message" data-empty="true"></div>
 
+            <!-- Emoji Popup Container -->
+            <div id="emoji-popup-container" class="emoji-popup-container"></div>
+
             <!-- New Game Confirmation Dialog -->
             <div id="new-game-modal" class="modal-overlay" style="display: none;">
                 <div class="modal-content">
@@ -85,13 +88,33 @@
                 </div>
             </div>
 
+            <!-- Emoji Communication -->
+            <div class="emoji-communication">
+                <div class="emoji-grid">
+                    <button class="emoji-btn" onclick="sendEmoji('👍')" title="Daumen hoch">👍</button>
+                    <button class="emoji-btn" onclick="sendEmoji('👎')" title="Daumen runter">👎</button>
+                    <button class="emoji-btn" onclick="sendEmoji('😊')" title="Lächeln">😊</button>
+                    <button class="emoji-btn" onclick="sendEmoji('😮')" title="Überrascht">😮</button>
+                    <button class="emoji-btn" onclick="sendEmoji('🤔')" title="Nachdenken">🤔</button>
+                    <button class="emoji-btn" onclick="sendEmoji('😤')" title="Genervt">😤</button>
+                    <button class="emoji-btn" onclick="sendEmoji('🎉')" title="Feiern">🎉</button>
+                    <button class="emoji-btn" onclick="sendEmoji('😅')" title="Nervös lachen">😅</button>
+                    <button class="emoji-btn" onclick="sendEmoji('🤦')" title="Facepalm">🤦</button>
+                    <button class="emoji-btn" onclick="sendEmoji('⚡')" title="Schnell">⚡</button>
+                </div>
+            </div>
+
         </main>
 
         <!-- Invite Link Card - Moved to bottom -->
         <div class="info-card invite-card invite-card-bottom">
+            <h3 class="invite-title">🎮 Zweiten Spieler einladen</h3>
+            <p class="invite-description">Teile diesen Link mit einem Freund, damit er dem Spiel beitreten kann:</p>
             <div class="invite-link-container">
                 <a id="invite-link" href="#" class="invite-link">Lädt...</a>
-                <button class="copy-button" onclick="copyInviteLink()">📋</button>
+                <button class="copy-button" onclick="copyInviteLink()" title="Link kopieren">
+                    <img src="/images/copy.png" alt="Kopieren" class="copy-icon">
+                </button>
             </div>
         </div>
 
